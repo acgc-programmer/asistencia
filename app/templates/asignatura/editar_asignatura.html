@@ -1,0 +1,159 @@
+{% extends 'navbar.html' %}
+
+{% block title %}Editar Asignatura{% endblock %}
+
+{% block head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/formulario.css') }}">
+<script src="https://kit.fontawesome.com/a2d04d6c0b.js" crossorigin="anonymous"></script>
+<style>
+    .form-container { max-width: 700px; }
+    .profesor-adder { display: flex; gap: 1rem; align-items: flex-end; margin-bottom: 1rem; }
+    .profesor-adder .input-group { flex-grow: 1; margin-bottom: 0; }
+    .profesor-adder .btn { flex-shrink: 0; height: fit-content; }
+    .lista-profesores { list-style: none; padding: 0; margin-top: 1rem; border: 1px solid #ddd; border-radius: 6px; overflow: hidden; }
+    .lista-profesores li { display: flex; justify-content: space-between; align-items: center; padding: 0.75rem 1rem; background-color: #f9f9f9; border-bottom: 1px solid #ddd; }
+    .lista-profesores li:last-child { border-bottom: none; }
+    .lista-profesores .btn-quitar { background: none; border: none; color: #dc3545; cursor: pointer; font-size: 1.1rem; }
+    .autocomplete-wrapper { position: relative; }
+    #profesores_resultados { position: absolute; top: 100%; left: 0; right: 0; background: #fff; border: 1px solid #ccc; z-index: 1000; max-height: 200px; overflow-y: auto; list-style: none; padding: 0; margin: 0; }
+    #profesores_resultados li { padding: 0.5rem 1rem; cursor: pointer; }
+    #profesores_resultados li:hover { background-color: #f0f0f0; }
+    .form-actions { display: flex; gap: 1rem; margin-top: 2rem; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="form-container">
+    <form method="POST" id="form-asignatura">
+        <h2>Editar Asignatura</h2>
+        <p class="text-muted">Actualiza los datos de la asignatura y los profesores que la imparten.</p>
+
+        <div class="input-group">
+            <label for="tema">Nombre de la Asignatura</label>
+            <input type="text" name="tema" id="tema" value="{{ asignatura.tema }}" required>
+        </div>
+
+        <div class="input-group">
+            <label for="id_curso">Curso Asignado</label>
+            <select name="id_curso" id="id_curso" required>
+                {% for curso in cursos %}
+                    <option value="{{ curso.id_curso }}" {% if curso.id_curso == asignatura.id_curso %}selected{% endif %}>
+                        {{ curso.grado }}
+                    </option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="input-group">
+            <label>Profesores</label>
+            <div class="profesor-adder">
+                <div class="input-group autocomplete-wrapper">
+                    <input type="text" id="profesor_buscar" placeholder="Buscar profesor para añadir..." autocomplete="off">
+                    <ul id="profesores_resultados"></ul>
+                </div>
+                <button type="button" id="btn-agregar-profesor" class="btn btn-secondary"><i class="fas fa-plus"></i> Agregar</button>
+            </div>
+            <ul id="lista-profesores" class="lista-profesores">
+                {% for prof in profesores_asignados %}
+                <li>
+                    <span>{{ prof.nombre }} {{ prof.apellido }}</span>
+                    <input type="hidden" name="id_profesores" value="{{ prof.id_profesor }}">
+                    <button type="button" class="btn-quitar" title="Quitar profesor">&times;</button>
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> Actualizar Asignatura</button>
+            <a href="{{ url_for('main.asignatura') }}" class="btn btn-secondary" style="text-decoration: none;"><i class="fas fa-arrow-left"></i> Volver</a>
+        </div>
+    </form>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const buscarInput = document.getElementById('profesor_buscar');
+    const resultadosList = document.getElementById('profesores_resultados');
+    const agregarBtn = document.getElementById('btn-agregar-profesor');
+    const listaProfesores = document.getElementById('lista-profesores');
+    const form = document.getElementById('form-asignatura');
+
+    let profesorSeleccionado = null;
+    let timeout = null;
+
+    buscarInput.addEventListener('input', () => {
+        const query = buscarInput.value.trim();
+        profesorSeleccionado = null;
+        if (query.length < 2) {
+            resultadosList.innerHTML = '';
+            return;
+        }
+        clearTimeout(timeout);
+        timeout = setTimeout(() => {
+            fetch(`{{ url_for('main.buscar_profesores') }}?q=${encodeURIComponent(query)}`)
+                .then(res => res.json())
+                .then(data => {
+                    resultadosList.innerHTML = '';
+                    data.forEach(prof => {
+                        const li = document.createElement('li');
+                        li.textContent = prof.label;
+                        li.addEventListener('click', () => {
+                            buscarInput.value = prof.label;
+                            profesorSeleccionado = { id: prof.id, nombre: prof.label };
+                            resultadosList.innerHTML = '';
+                        });
+                        resultadosList.appendChild(li);
+                    });
+                });
+        }, 300);
+    });
+
+    function agregarProfesor(id, nombre) {
+        if (document.querySelector(`input[name="id_profesores"][value="${id}"]`)) {
+            alert('Este profesor ya ha sido agregado.');
+            return false;
+        }
+
+        const li = document.createElement('li');
+        li.innerHTML = `
+            <span>${nombre}</span>
+            <input type="hidden" name="id_profesores" value="${id}">
+            <button type="button" class="btn-quitar" title="Quitar profesor">&times;</button>
+        `;
+        listaProfesores.appendChild(li);
+
+        li.querySelector('.btn-quitar').addEventListener('click', () => {
+            li.remove();
+        });
+        return true;
+    }
+
+    agregarBtn.addEventListener('click', () => {
+        if (!profesorSeleccionado) {
+            alert('Por favor, busca y selecciona un profesor de la lista.');
+            return;
+        }
+        if (agregarProfesor(profesorSeleccionado.id, profesorSeleccionado.nombre)) {
+            buscarInput.value = '';
+            profesorSeleccionado = null;
+        }
+    });
+
+    // Añadir evento de click a los botones de quitar ya existentes
+    listaProfesores.querySelectorAll('.btn-quitar').forEach(btn => {
+        btn.addEventListener('click', () => {
+            btn.closest('li').remove();
+        });
+    });
+
+    form.addEventListener('submit', (e) => {
+        const profesoreAgregados = document.querySelectorAll('input[name="id_profesores"]');
+        if (profesoreAgregados.length === 0) {
+            e.preventDefault();
+            alert('Debes agregar al menos un profesor a la asignatura.');
+        }
+    });
+});
+</script>
+{% endblock %}

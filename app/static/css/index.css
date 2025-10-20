@@ -1,0 +1,56 @@
+/* ====== Contenedor general ====== */
+.container {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 20px;
+    font-family: Arial, sans-serif;
+    color: #333;
+}
+
+/* ====== Hero (titulo y bienvenida) ====== */
+section.text-center h1 {
+    font-size: 2.2rem;
+    color: #1e3a8a; /* Azul institucional */
+    margin-bottom: 15px;
+}
+
+section.text-center p {
+    font-size: 1rem;
+    color: #555;
+    line-height: 1.6;
+    max-width: 700px;
+    margin: 0 auto;
+}
+
+section img {
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  transition: transform 0.3s ease;
+  max-width: 1000px;
+  width: 90%;
+  height: auto;
+  display: block;
+  margin: 20px auto; /* para centrar en bloque si no usas flex */
+}
+
+.container{
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  
+}
+
+@media (max-width: 768px) {
+  section.text-center h1 {
+    font-size: 1.8rem;
+  }
+
+  section.text-center p {
+    font-size: 0.9rem;
+  }
+  .container {
+    display: flex;
+    flex-direction: column;
+    align-items: center
+  }
+}

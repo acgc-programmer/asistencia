@@ -1,0 +1,45 @@
+{% extends "navbar.html" %}
+{% block title %}Profesores Registrados{% endblock %}
+
+{% block head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/tablas.css') }}">
+<script src="https://kit.fontawesome.com/a2d04d6c0b.js" crossorigin="anonymous"></script>
+{% endblock %}
+
+{% block content %}
+<div class="title-container">
+<h2 class="titulo">Profesores Registrados</h2>
+<a class="nueva" href="{{ url_for('main.registrar_profesor') }}">Registrar nuevo profesor</a>
+
+</div>
+<div class="table-container">
+  <table>
+    <thead>
+      <tr>
+        <th>Nombre Completo</th>
+        <th>Documento</th>
+        <th>Especialidad</th>
+        <th>Acciones</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for prof in profesores %}
+      <tr>
+        <td>{{ prof[1] }}</td>
+        <td>{{ prof[2] }}</td>
+        <td>{{ prof[3] or 'No especificada' }}</td>
+        <td class="acciones">
+          <a class="editar" href="{{ url_for('main.editar_profesor', id=prof[0]) }}"><i class="fas fa-pen"></i> Editar</a>
+          <form action="{{ url_for('main.eliminar_profesor', id=prof[0]) }}" method="POST" style="display:inline;" onsubmit="event.preventDefault(); showConfirmModal('¿Estás seguro de que quieres eliminar a este profesor y todos sus datos asociados?', () => this.submit());">
+            <button type="submit" class="eliminar-link"><i class="fas fa-trash-alt"></i> Eliminar</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% include 'partials/_pagination.html' %}
+</div>
+
+
+{% endblock %}

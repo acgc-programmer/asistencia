@@ -1,0 +1,248 @@
+{% extends "navbar.html" %}
+{% block title %}Asistencias{% endblock %}
+
+
+{% block head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/tablas.css') }}" />
+<script src="https://kit.fontawesome.com/a2d04d6c0b.js" crossorigin="anonymous"></script>
+<style>
+    .asistencia-container {
+        max-width: 1200px;
+        margin: auto;
+        padding: 1rem;
+    }
+    .filtros-form {
+        background-color: #ffffff;
+        padding: 1.5rem;
+        border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+        margin-bottom: 2rem;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 1.5rem;
+        align-items: flex-end;
+    }
+    .filtros-form .acciones-principales {
+        margin-left: auto; /* Empuja el botón a la derecha */
+    }
+    .filtros-form h2 {
+        width: 100%;
+        margin-bottom: 1rem;
+    }
+    .filtro-item {
+        display: flex;
+        flex-direction: column;
+    }
+    .filtro-item label {
+        font-size: 0.85rem;
+        font-weight: 600;
+        margin-bottom: 0.5rem;
+        color: #555;
+    }
+    .filtro-item .form-control {
+        padding: 0.6rem 1rem;
+        border: 1px solid #ccc;
+        border-radius: 6px;
+        font-size: 1rem;
+        transition: border-color 0.2s ease, box-shadow 0.2s ease;
+        background-color: #f9f9f9;
+    }
+    .filtro-item .form-control:focus {
+        outline: none;
+        border-color: var(--primary-color);
+        box-shadow: 0 0 0 3px rgba(30, 58, 138, 0.15);
+        background-color: #fff;
+    }
+    .horario-card {
+        background-color: #fff;
+        border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+        margin-bottom: 2rem;
+        overflow: hidden;
+    }
+    .horario-header {
+        background-color: var(--primary-color);
+        color: var(--text-light);
+        padding: 1rem 1.5rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    .horario-header .acciones-header {
+        display: flex;
+        gap: 1rem;
+        align-items: center;
+    }
+    .btn-eliminar-horario {
+        background-color: transparent;
+        border: 1px solid #ff7b7b;
+        color: #dc3545;
+        padding: 0.3rem 0.8rem;
+        border-radius: 5px;
+        cursor: pointer;
+        font-size: 0.8rem;
+        transition: all 0.2s ease;
+    }
+    .btn-eliminar-horario:hover {
+        background-color: #dc3545;
+        color: white;
+    }
+    .horario-header h3 { margin: 0; font-size: 1.2rem; }
+    .horario-header span { font-size: 0.9rem; opacity: 0.9; }
+    .estudiantes-table-container {
+        padding: 0 1.5rem 1.5rem 1.5rem;
+        border-top: 1px solid #eee;
+        overflow-x: auto; /* Permite scroll horizontal en la tabla si es necesario */
+    }    
+    
+    .estado { 
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+    }
+    .estado span {
+        padding: 12px;
+        border-radius: 25px;
+    }
+    .estado-presente { background-color: #28a745; } /* Verde */
+    .estado-ausente { background-color:  #dc3545; } /* Rojo */
+    .estado-tarde { background-color:  #fd7e14; } /* Naranja */
+    .estado-justificado { background-color:  #007bff; } /* Azul */
+    .estado-none { background-color: #6c757d; } /* Gris */
+
+    .acciones-cell {
+        text-align: center;
+        vertical-align: middle;
+    }
+    .acciones-cell .btn-group {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    /* --- ESTILOS RESPONSIVE --- */
+    @media (max-width: 768px) {
+        .filtros-form {
+            flex-direction: column;
+            align-items: stretch;
+        }
+        .filtros-form .acciones-principales {
+            margin-left: 0;
+            width: 100%;
+        }
+        .filtros-form .acciones-principales .btn,
+        .filtros-form .btn-secondary {
+            width: 100%;
+            justify-content: center;
+        }
+        .horario-header {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 0.5rem;
+        }
+        .acciones-cell .btn-group {
+            flex-direction: column; /* Apila los botones en móvil */
+            align-items: stretch;
+            width: 100%;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="asistencia-container">
+    <form method="GET" action="{{ url_for('main.asistencias') }}" class="filtros-form">
+        <h2>Panel de Asistencias</h2>
+        <div class="filtro-item">
+            <label for="id_curso">Curso:</label>
+            <select name="id_curso" id="id_curso" class="form-control" required>
+                <option value="">-- Seleccione un curso --</option>
+                {% for curso in cursos_filtro %}
+                <option value="{{ curso.id_curso }}" {% if curso.id_curso == id_curso_seleccionado %}selected{% endif %}>
+                    {{ curso.grado }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="filtro-item">
+            <label for="fecha">Fecha:</label>
+            <input type="date" id="fecha" name="fecha" value="{{ fecha_seleccionada }}" class="form-control">
+        </div>
+        <button type="submit" class="btn btn-secondary">Filtrar</button>
+        <div class="acciones-principales">
+            <a href="{{ url_for('main.registrar_asistencia') }}" class="btn btn-primary">Registrar Nueva Asistencia</a>
+        </div>
+    </form>
+
+    {% if id_curso_seleccionado %}
+        {% for item in vista_horarios %}
+        <div class="horario-card">
+            <div class="horario-header">
+                <div>
+                    <h3>{{ item.horario.asignatura }}</h3>
+                    <span>{{ item.horario.hora_inicio.strftime('%H:%M') }} - {{ item.horario.hora_fin.strftime('%H:%M') }} | Prof: {{ item.horario.profesor }}</span>
+                </div>
+                <form action="{{ url_for('main.eliminar_asistencia_horario') }}" method="POST" class="acciones-header" onsubmit="event.preventDefault(); showConfirmModal('¿Eliminar TODAS las asistencias de esta clase? Esta acción no se puede deshacer.', () => event.target.submit());">
+                    <input type="hidden" name="id_horario" value="{{ item.horario.id_horario }}">
+                    <input type="hidden" name="id_curso" value="{{ id_curso_seleccionado }}">
+                    <input type="hidden" name="fecha" value="{{ fecha_seleccionada }}">
+                    <button type="submit" class="btn-eliminar-horario" title="Eliminar todas las asistencias de esta clase"><i class="fas fa-trash-alt"></i> Eliminar Grupo</button>
+                </form>
+            </div>
+            <div class="estudiantes-table-container">
+                <table class="table table-bordered table-striped">
+                    <thead>
+                        <tr>
+                            <th>Estudiante</th>
+                            <th style="width: 120px; text-align: center;">Estado</th>
+                            <th style="width: 100px; text-align: center;">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for estudiante in item.estudiantes %}
+                        <tr>
+                            <td>{{ estudiante.nombre }}</td>
+                            <td class="estado">
+                                {% if estudiante.estado == 'Presente' %}
+                                    <span class="estado-presente">Presente</span>
+                                {% elif estudiante.estado == 'Ausente' %}
+                                    <span class="estado-ausente">Ausente</span>
+                                {% elif estudiante.estado == 'Tarde' %}
+                                    <span class="estado-tarde">Tarde</span>
+                                {% elif estudiante.estado == 'Justificado' %}
+                                    <span class="estado-justificado">Justificado</span>
+                                {% else %}
+                                    <span class="estado-none">Sin Registrar</span>
+                                {% endif %}
+                            </td>
+                            <td class="acciones-cell">
+                                {% if estudiante.id_asistencia %}
+                                <div class="btn-group">
+                                    <a href="{{ url_for('main.editar_asistencia', id=estudiante.id_asistencia, fecha=fecha_seleccionada, id_curso=id_curso_seleccionado) }}" title="Editar Asistencia" class="btn btn-secondary"><i class="fas fa-pen"></i> Editar</a>
+                                    <form action="{{ url_for('main.eliminar_asistencia_individual', id=estudiante.id_asistencia) }}"  method="POST" style="display: inline;" onsubmit="event.preventDefault(); showConfirmModal('¿Eliminar este registro de asistencia?', () => this.submit());">
+                                        <input type="hidden" name="fecha" value="{{ fecha_seleccionada }}">
+                                        <input type="hidden" name="id_curso" value="{{ id_curso_seleccionado }}">
+                                        <button type="submit" class="btn btn-danger" title="Eliminar Asistencia"><i class="fas fa-trash-alt"></i> Eliminar</button>
+                                    </form>
+                                </div>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        {% else %}
+            <div class="alert alert-info">No hay clases programadas para este curso en el día seleccionado.</div>
+        {% endfor %}
+    {% else %}
+        {% include 'partials/_pagination.html' %}
+        <div class="alert alert-info">Por favor, seleccione un curso para ver las asistencias.</div>
+    {% endif %}
+
+</div>
+
+{% endblock %}

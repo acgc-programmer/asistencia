@@ -1,0 +1,118 @@
+/* CONTENEDOR PRINCIPAL - DOS COLUMNAS */
+.container-flex {
+  display: flex;
+  gap: 2rem;
+  padding: 1rem;
+  align-items: flex-start;
+  justify-content: center;
+  flex-wrap: wrap; /* para que se adapte en pantallas pequeñas */
+  background: #f9f9f9;
+  border-radius: 8px;
+}
+
+/* FORMULARIO: columna izquierda */
+.form-container {
+  flex: 1 1 350px;
+  max-width: 400px;
+  background: white;
+  padding: 1.5rem;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+/* TABLA: columna derecha */
+.tabla-container {
+  flex: 2 1 600px;
+  background: white;
+  padding: 1rem;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  overflow-x: auto;
+  display: none; /* inicialmente oculta, se muestra cuando hay estudiantes */
+}
+
+/* TÍTULO CENTRADO */
+h2, h4 {
+  text-align: center;
+  margin-bottom: 1rem;
+  color: #0d47a1; /* azul fuerte */
+}
+
+/* RESPONSIVE: en pantallas menores, columna única */
+@media (max-width: 768px) {
+  .container-flex {
+    flex-direction: column;
+    padding: 0.5rem;
+  }
+  .form-container, .tabla-container {
+    max-width: 100%;
+    flex: 1 1 100%;
+  }
+}
+
+/* Estilos para input y autocompletado */
+.autocomplete-wrapper {
+  position: relative;
+  width: 100%;
+}
+#id_profesor_input {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  font-size: 1rem;
+  box-sizing: border-box;
+  background: #fff;
+}
+#profesores_resultados {
+  border: 1px solid #ccc;
+  max-height: 200px;
+  overflow-y: auto;
+  margin: 0;
+  padding-left: 0;
+  position: absolute;
+  width: 100%;
+  background: white;
+  z-index: 1000;
+  list-style-type: none;
+  top: 38px; /* ajusta para que quede debajo del input */
+  left: 0;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.15);
+}
+#profesores_resultados li {
+  padding: 8px 12px;
+  cursor: pointer;
+}
+#profesores_resultados li:hover,
+#profesores_resultados li:focus {
+  background-color: #eee;
+  outline: none;
+}
+
+/* Estilos para inputs dentro de la tabla */
+.table input[type="text"],
+.table select,
+.table input[type="file"] {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 6px 8px;
+  border-radius: 4px;
+  border: 1px solid #ccc;
+  font-size: 0.9rem;
+}
+
+/* Botón guardar */
+.btn-primary {
+  background-color: #007bff;
+  border-color: #007bff;
+  padding: 0.5rem 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  border-radius: 5px;
+  transition: background-color 0.3s ease;
+}
+
+.btn-primary:hover {
+  background-color: #0056b3;
+  border-color: #004085;
+}

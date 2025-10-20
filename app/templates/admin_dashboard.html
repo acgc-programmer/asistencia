@@ -1,0 +1,45 @@
+{% extends 'navbar.html' %}
+
+{% block head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css')}}">
+{% endblock %}
+
+{% block content %}
+<h1 style="text-align: center;">Bienvenido,
+  <br> Administrador
+</h1>
+
+<div class="dashboard-cards">
+
+  <div class="card">
+    <h2>Profesores</h2>
+    <p>Gestiona los profesores</p>
+    <a href="{{ url_for('main.profesores') }}" class="btn">Ver</a>
+  </div>
+
+  <div class="card">
+    <h2>Estudiantes</h2>
+    <p>Gestiona los estudiantes</p>
+    <a href="{{ url_for('main.estudiantes') }}" class="btn">Ver</a>
+  </div>
+
+  <div class="card">
+    <h2>Cursos</h2>
+    <p>Administra los cursos</p>
+    <a href="{{ url_for('main.cursos') }}" class="btn">Ver</a>
+  </div>
+
+  <div class="card">
+    <h2>Asignaturas</h2>
+    <p>Configura las asignaturas</p>
+    <a href="{{ url_for('main.asignatura') }}" class="btn">Ver</a>
+  </div>
+
+  <div class="card">
+    <h2>Reportes</h2>
+    <p>Ver reportes generales</p>
+    <a href="{{ url_for('main.reporte') }}" class="btn">Ver</a>
+  </div>
+
+</div>
+{% endblock %}

@@ -1,0 +1,27 @@
+{% extends 'navbar.html' %}
+
+{% block title %}Página Principal{% endblock %}
+
+{% block head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/index.css') }}" />
+{% endblock %}
+
+{% block content %}
+<div class="container">
+  <!-- Hero -->
+  <section class="my-10">
+    <h1 class="text-3xl font-bold mb-4">ASISTENCIAS</h1>
+    <p class="text-gray-600 mb-6">
+      Bienvenido a la plataforma de asistencia, 
+      para observar sus datos, por favor inicie sesión.
+    </p>
+  </section>
+
+  <!-- Imagen -->
+  <section class="my-8">
+    <img src="{{ url_for('static', filename='img/colegio.jpg') }}" 
+         alt="IED Simón Bolívar" 
+         class="w-full rounded-lg shadow-lg">
+  </section>
+</div>
+{% endblock %}

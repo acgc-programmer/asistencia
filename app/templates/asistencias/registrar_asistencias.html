@@ -1,0 +1,537 @@
+{% extends "navbar.html" %}
+{% block title %}Registrar Asistencias{% endblock %}
+
+{% block head %}
+  <script src="https://kit.fontawesome.com/a2d04d6c0b.js" crossorigin="anonymous"></script>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/asistencia.css') }}" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/tablas.css') }}" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/horario_registro.css') }}" />
+  <style>
+    /* Contenedor principal */
+    .container {
+      max-width: 1100px;
+      margin: 2rem auto;
+      padding: 1rem;
+    }
+
+    /* Tarjeta para los filtros */
+    .filtro-card {
+      background: white;
+      padding: 2rem;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      margin-bottom: 2rem;
+      transition: all 0.3s ease;
+    }
+
+    /* Grid para los filtros */
+    .filtro-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 1.5rem;
+    }
+
+    /* Contenedor para la tabla de estudiantes */
+    .registro-container {
+      background: white;
+      padding: 2rem;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      overflow-x: auto;
+      display: none; /* inicialmente oculta */
+      transition: opacity 0.4s ease;
+      margin-top: 2rem;
+    }
+
+    /* TÍTULO CENTRADO */
+    h2 {
+      text-align: center;
+      margin-bottom: 1.5rem;
+      color: #0d47a1; /* azul fuerte */
+      font-size: 1.8rem;
+    }
+
+    .acciones-finales {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 2rem;
+    }
+
+    .btn, .btn-primary, .btn-secondary, .btn-marcar-todos {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.7rem 1.3rem;
+        border-radius: 6px;
+        font-weight: 600;
+        text-decoration: none;
+        cursor: pointer;
+        border: 1px solid transparent;
+        transition: all 0.2s ease;
+    }
+
+    .btn-marcar-todos {
+      background-color: #17a2b8;
+      color: white;
+    }
+
+    /* Estilos para labels y form controls (inputs, selects) */
+    .form-label {
+        font-size: 0.85rem;
+        font-weight: 600;
+        margin-bottom: 0.5rem;
+        color: #555;
+    }
+    .form-control, #id_profesor_input {
+        width: 100%;
+        padding: 0.6rem 1rem;
+        border: 1px solid #ccc;
+        border-radius: 6px;
+        font-size: 1rem;
+        transition: border-color 0.2s ease, box-shadow 0.2s ease;
+        background-color: #f9f9f9;
+    }
+    .form-control:focus, #id_profesor_input:focus {
+        outline: none;
+        border-color: var(--primary-color);
+        box-shadow: 0 0 0 3px rgba(30, 58, 138, 0.15);
+        background-color: #fff;
+    }
+
+    /* Ocultar los selects originales que ahora se manejan por JS */
+    #horario-curso-selects {
+        display: none;
+    }
+
+
+    /* Estilos para input y autocompletado */
+    .autocomplete-wrapper {
+      position: relative;
+      width: 100%;
+    }
+    #id_profesor_input {
+      width: 100%; 
+    }
+    #profesores_resultados {
+      border: 1px solid #ccc;
+      max-height: 200px;
+      overflow-y: auto;
+      margin: 0;
+      padding-left: 0;
+      position: absolute;
+      width: 100%;
+      background: white;
+      z-index: 1000;
+      list-style-type: none;
+      top: 100%;
+      left: 0;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.15);
+    }
+    #profesores_resultados li {
+      padding: 8px 12px;
+      cursor: pointer;
+    }
+    #profesores_resultados li:hover, #profesores_resultados li:focus {
+      background-color: #eee;
+      outline: none;
+    }
+
+    .horario-table thead th {
+        background-color: var(--primary-color);
+        color: white;
+    }
+  </style>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+  <form method="POST" enctype="multipart/form-data" action="{{ url_for('main.registrar_asistencia') }}" id="form-asistencia">
+    <!-- Tarjeta de Filtros -->
+    <div class="filtro-card">
+      <h2>Registrar Asistencia</h2>
+      <p class="text-center text-muted">Selecciona tu usuario y la fecha para ver tu horario.</p>
+      <div class="filtro-grid">
+          <!-- PROFESOR -->
+          <div class="form-group autocomplete-wrapper">
+            <label for="id_profesor_input" class="form-label">
+              {% if profesor_autocompletado %}Tu Usuario de Profesor{% else %}Profesor{% endif %}
+            </label>
+            <input 
+              type="text" 
+              id="id_profesor_input" 
+              name="profesor_nombre" 
+              placeholder="Escriba para buscar profesor" 
+              autocomplete="off" 
+              required
+              {% if profesor_autocompletado %}value="{{ profesor_autocompletado.nombre_completo }}" readonly{% endif %}
+            >
+            <ul id="profesores_resultados" role="listbox" aria-label="Resultados de búsqueda profesores"></ul>
+            <input type="hidden" id="id_profesor_real" name="id_profesor_real" required {% if profesor_autocompletado %}value="{{ profesor_autocompletado.id_profesor }}"{% endif %}>
+          </div>
+          <!-- FECHA -->
+          <div class="form-group">
+            <label for="fecha" class="form-label">Fecha de Asistencia</label>
+            <input type="date" name="fecha" id="fecha" class="form-control" required readonly>
+          </div>
+        </div>
+    </div>
+
+    <!-- Contenedor de la Tabla de Estudiantes -->
+    <div id="registro-container" class="registro-container" aria-live="polite" aria-atomic="true" aria-relevant="all">
+        <!-- Contenedor para el horario del profesor -->
+        <div id="horario-profesor-container" style="display: none;">
+            <hr style="margin: 2rem 0;">
+            <h3 class="text-center" style="margin-bottom: 0.5rem;">Paso 2: Selecciona la Clase</h3>
+            <p class="text-center text-muted">Haz clic en una clase para cargar los estudiantes.</p>
+            <div class="horario-table-container">
+                <table class="horario-table" id="tabla-horario-profesor">
+                    <!-- El contenido se generará con JS -->
+                </table>
+            </div>
+        </div>
+
+        <!-- Selects ocultos para enviar datos del formulario -->
+        <div id="horario-curso-selects">
+            <input type="hidden" name="id_horario" id="id_horario">
+            <input type="hidden" name="id_curso" id="id_curso">
+        </div>
+        <div id="lista-estudiantes-container" style="display: none;">
+            <hr style="margin: 2rem 0;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+              <h3 class="text-center" style="margin-bottom: 0.5rem;">Paso 3: Registra la Asistencia</h3>
+              <button type="button" class="btn-marcar-todos" id="btn-marcar-presentes"><i class="fas fa-check-double"></i> Marcar Todos como Presente</button>
+            </div>
+            <table class="table table-bordered table-striped" role="grid">
+          <thead>
+            <tr>
+              <th>Estudiante</th>
+              <th style="width: 150px;">Estado</th>
+              <th style="width: 200px;">Observaciones</th>
+              <th style="width: 150px;">Excusa (foto)</th>
+            </tr>
+          </thead>
+          <tbody id="lista-estudiantes"></tbody>
+            </table>
+        </div>
+
+        <div class="acciones-finales">
+          <button type="submit" class="btn btn-primary">Guardar Asistencias</button>
+          <a href="{{ url_for('main.asistencias') }}" class="btn btn-secondary"><i class="fas fa-arrow-left"></i> Volver</a>
+
+        </div>
+    </div>
+
+  </div>
+</form>
+</div>
+
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    const profesorInput = document.getElementById('id_profesor_input');
+    const fechaInput = document.getElementById('fecha');
+    // Establecer la fecha actual automáticamente y deshabilitar el campo
+    fechaInput.value = new Date().toISOString().split('T')[0];
+
+    const profesorHidden = document.getElementById('id_profesor_real');
+    const resultados = document.getElementById('profesores_resultados');
+    const btnMarcarPresentes = document.getElementById('btn-marcar-presentes');
+    const form = document.getElementById('form-asistencia');
+
+    // --- INICIO: Lógica de autocompletado para profesor ---
+    const idProfesorAutocompletado = "{{ profesor_autocompletado.id_profesor if profesor_autocompletado else '' }}";
+    if (idProfesorAutocompletado) {
+      cargarHorariosYCursos(idProfesorAutocompletado);
+    }
+
+    let timeout = null;
+    let profesoresCache = [];
+
+    // Función de hash simple para asignar colores a las asignaturas
+    function simpleStringHash(str) {
+        let hash = 0;
+        for (let i = 0; i < str.length; i++) {
+            const char = str.charCodeAt(i);
+            hash = ((hash << 5) - hash) + char;
+            hash |= 0; // Convert to 32bit integer
+        }
+        return hash;
+    }
+
+    function limpiarResultados() {
+      resultados.innerHTML = '';
+      resultados.style.display = 'none';
+    }
+
+    // Evento input para autocompletar profesores
+    profesorInput.addEventListener('input', () => {
+      // Si el campo es de solo lectura (para profesores), no hacer nada.
+      if (profesorInput.readOnly) return;
+
+      clearTimeout(timeout);
+      const query = profesorInput.value.trim();
+
+      profesorHidden.value = ''; // limpiar id al modificar texto
+
+      if (query.length < 2) {
+        limpiarResultados();
+        return;
+      }
+
+      timeout = setTimeout(() => {
+        fetch(`/buscar_profesores?q=${encodeURIComponent(query)}`)
+          .then(res => {
+            if (!res.ok) throw new Error('Error al buscar profesores');
+            return res.json();
+          })
+          .then(data => {
+            profesoresCache = data; // guardamos para búsqueda
+            resultados.innerHTML = '';
+
+            if (data.length === 0) {
+              resultados.innerHTML = '<li role="option" aria-disabled="true">No se encontraron profesores</li>';
+              resultados.style.display = 'block';
+              return;
+            }
+
+            data.forEach(prof => {
+              const li = document.createElement('li');
+              li.textContent = prof.label;  // Usar label que incluye nombre y documento
+              li.setAttribute('role', 'option');
+              li.tabIndex = 0;
+              li.addEventListener('click', () => {
+                profesorInput.value = prof.label;  // Mostrar nombre + documento en input
+                profesorHidden.value = prof.id;  // Guardar id en hidden
+
+                limpiarResultados();
+
+                cargarHorariosYCursos(prof.id);
+              });
+              li.addEventListener('keydown', e => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  li.click();
+                }
+              });
+              resultados.appendChild(li);
+            });
+            resultados.style.display = 'block';
+          })
+          .catch(err => {
+            console.error(err);
+            resultados.innerHTML = '<li role="option" aria-disabled="true">Error al buscar profesores</li>';
+            resultados.style.display = 'block';
+          });
+      }, 300);
+    });
+
+    // Cerrar lista resultados al hacer click fuera
+    document.addEventListener('click', (e) => {
+      if (!resultados.contains(e.target) && e.target !== profesorInput) {
+        limpiarResultados();
+      }
+    });
+
+    // Función para cargar horarios y cursos al seleccionar profesor
+    async function cargarHorariosYCursos(id_profesor) {
+      const registroContainer = document.getElementById('registro-container');
+      document.getElementById('horario-profesor-container').style.display = 'none';
+      document.getElementById('tabla-horario-profesor').innerHTML = '';
+      document.getElementById('lista-estudiantes-container').style.display = 'none';
+      registroContainer.style.display = 'none'; // Ocultar temporalmente
+
+      if (!id_profesor) { return; }
+
+      try {
+        const res = await fetch(`/get_horarios_cursos/${id_profesor}`);
+        if (!res.ok) throw new Error('Error al obtener horarios y cursos.');
+        const horarios = await res.json();
+        construirTablaHorario(horarios);
+      } catch (err) {
+        console.error(err);
+        alert('Error al cargar horarios y cursos.');
+      } finally {
+        registroContainer.style.display = 'block'; // Asegurarse de que el contenedor principal sea visible
+      }
+    }
+
+    function construirTablaHorario(horarios) {
+        const tablaHorario = document.getElementById('tabla-horario-profesor');
+        const container = document.getElementById('horario-profesor-container');
+        tablaHorario.innerHTML = ''; // Limpiar tabla
+
+        if (horarios.length === 0) {
+            container.style.display = 'block';
+            tablaHorario.innerHTML = '<tr><td colspan="7" class="text-center">Este profesor no tiene horarios asignados.</td></tr>';
+            return;
+        }
+
+        const diasSemana = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
+        const franjasHorarias = [...new Set(horarios.map(h => `${h.hora_inicio} - ${h.hora_fin}`))].sort();
+
+        // Crear cabecera
+        const thead = document.createElement('thead');
+        let headerRow = '<tr><th>Hora</th>';
+        diasSemana.forEach(dia => headerRow += `<th>${dia}</th>`);
+        headerRow += '</tr>';
+        thead.innerHTML = headerRow;
+        tablaHorario.appendChild(thead);
+
+        // Crear cuerpo
+        const tbody = document.createElement('tbody');
+        franjasHorarias.forEach(franja => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `<td class="hora-cell">${franja}</td>`;
+            diasSemana.forEach(dia => {
+                const [h_inicio, h_fin] = franja.split(' - ');
+                const clase = horarios.find(h =>
+                    h.dia_semana.toLowerCase() === dia.toLowerCase() && 
+                    h.hora_inicio === h_inicio &&
+                    h.hora_fin === h_fin
+                );
+
+                const td = document.createElement('td');
+                if (clase) {
+                    const colorIndex = Math.abs(simpleStringHash(clase.asignatura)) % 10;
+                    td.innerHTML = `
+                        <div class="clase-card-registro color-${colorIndex}">
+                            <div class="asignatura">${clase.asignatura}</div>
+                            <div class="curso">${clase.grado}</div>
+                        </div>
+                    `;
+                    td.classList.add('clase-celda');
+                    td.dataset.idHorario = clase.id_horario;
+                    td.dataset.idCurso = clase.id_curso;
+                    td.addEventListener('click', () => seleccionarClase(td));
+                }
+                tr.appendChild(td);
+            });
+            tbody.appendChild(tr);
+        });
+        tablaHorario.appendChild(tbody);
+        container.style.display = 'block';
+    }
+
+    function seleccionarClase(celda) {
+        // Quitar selección previa
+        document.querySelectorAll('.clase-celda.selected').forEach(c => c.classList.remove('selected'));
+        // Añadir selección a la celda actual
+        celda.classList.add('selected');
+
+        const idHorario = celda.dataset.idHorario;
+        const idCurso = celda.dataset.idCurso;
+
+        // Poblar los inputs ocultos
+        document.getElementById('id_horario').value = idHorario;
+        document.getElementById('id_curso').value = idCurso;
+        
+        // Mostrar la sección de la lista de estudiantes
+        document.getElementById('lista-estudiantes-container').style.display = 'block';
+
+        // Cargar estudiantes
+        cargarEstudiantes(idCurso);
+    }
+
+    async function cargarEstudiantes(id_curso) {
+        const tbodyEstudiantes = document.getElementById('lista-estudiantes'); 
+        const tablaEstudiantes = document.getElementById('lista-estudiantes-container');
+        tbodyEstudiantes.innerHTML = '<tr><td colspan="4">Cargando...</td></tr>';
+        tablaEstudiantes.style.display = 'block';
+
+        if (!id_curso) {
+            tbodyEstudiantes.innerHTML = '';
+            tablaEstudiantes.style.display = 'none';
+            return;
+        }
+
+        try {
+            const res = await fetch(`/asistencias/estudiantes/${id_curso}`);
+            if (!res.ok) throw new Error('Error al obtener estudiantes');
+            const data = await res.json();
+            const lista = data.estudiantes ? data.estudiantes : data;
+
+            tbodyEstudiantes.innerHTML = ''; // Limpiar antes de poblar
+
+            if (!Array.isArray(lista) || lista.length === 0) {
+                tbodyEstudiantes.innerHTML = '<tr><td colspan="4">No hay estudiantes en este curso.</td></tr>';
+                return;
+            }
+
+            for (const est of lista) {
+                const id = est.id_estudiante ?? est[0];
+                const nombre = est.nombre ?? est[1] ?? est[0];
+
+                const tr = document.createElement('tr');
+
+                const tdNombre = document.createElement('td');
+                tdNombre.textContent = nombre;
+                tr.appendChild(tdNombre);
+
+                const tdEstado = document.createElement('td');
+                const selEstado = document.createElement('select');
+                selEstado.name = `estado_${id}`;
+                selEstado.className = 'form-control';
+                ['Presente', 'Ausente', 'Tarde', 'Justificado'].forEach(v => {
+                    const o = document.createElement('option'); o.value = v; o.textContent = v;
+                    selEstado.appendChild(o);
+                });
+                tdEstado.appendChild(selEstado);
+                tr.appendChild(tdEstado);
+
+                const tdObs = document.createElement('td');
+                const inpObs = document.createElement('input');
+                inpObs.type = 'text';
+                inpObs.name = `observaciones_${id}`;
+                inpObs.className = 'form-control';
+                tdObs.appendChild(inpObs);
+                tr.appendChild(tdObs);
+
+                const tdFile = document.createElement('td');
+                const inpFile = document.createElement('input');
+                inpFile.type = 'file';
+                inpFile.name = `excusa_${id}`;
+                inpFile.accept = 'image/*';
+                tdFile.appendChild(inpFile);
+                tr.appendChild(tdFile);
+
+                const inputHidden = document.createElement('input');
+                inputHidden.type = 'hidden';
+                inputHidden.name = 'estudiantes[]';
+                inputHidden.value = id;
+                tr.appendChild(inputHidden);
+
+                tbodyEstudiantes.appendChild(tr);
+            }
+        } catch (err) {
+            console.error(err);
+            tbodyEstudiantes.innerHTML = '<tr><td colspan="4">Error al cargar estudiantes.</td></tr>';
+        }
+    }
+
+    // Funcionalidad para marcar todos como presentes
+    btnMarcarPresentes.addEventListener('click', () => {
+      const selectsDeEstado = document.querySelectorAll('#lista-estudiantes select[name^="estado_"]');
+      selectsDeEstado.forEach(select => {
+        select.value = 'Presente';
+      });
+    });
+
+    // Validación mínima para envío formulario
+    form.addEventListener('submit', e => {
+      if (!profesorHidden.value) {
+        alert('Debe seleccionar un profesor válido de la lista.');
+        e.preventDefault();
+        profesorInput.focus();
+        return;
+      }
+      if (!document.getElementById('id_horario').value || !document.getElementById('id_curso').value) {
+        alert('Debe seleccionar una clase del horario.');
+        e.preventDefault();
+        return;
+      }
+    });
+  });
+</script>
+
+
+{% endblock %}

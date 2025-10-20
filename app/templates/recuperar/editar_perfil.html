@@ -1,0 +1,41 @@
+{% extends "navbar.html" %}
+{% block title %}Editar Perfil{% endblock %}
+
+{% block head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/login.css') }}">
+{% endblock %}
+
+{% block content %}
+<main>
+  <div class="login-container">
+    <form method="POST">
+      <h2>👤 Editar Perfil</h2>
+
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+          {% for category, message in messages %}
+            <div class="flash {{ category }}">{{ message }}</div>
+          {% endfor %}
+        {% endif %}
+      {% endwith %}
+
+      <div class="input-group">
+        <i class="fa-solid fa-user input-icon"></i>
+        <input type="text" name="username" value="{{ username }}" required placeholder="Nuevo nombre de usuario">
+      </div>
+
+      <div class="input-group">
+        <i class="fa-solid fa-lock input-icon"></i>
+        <input type="password" name="password" placeholder="Nueva contraseña" required>
+      </div>
+
+      <div class="input-group">
+        <i class="fa-solid fa-lock input-icon"></i>
+        <input type="password" name="confirm_password" placeholder="Confirmar contraseña" required>
+      </div>
+
+      <button type="submit">Actualizar perfil</button>
+    </form>
+  </div>
+</main>
+{% endblock %}

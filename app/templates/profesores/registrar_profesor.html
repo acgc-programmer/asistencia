@@ -1,0 +1,140 @@
+{% extends 'navbar.html' %}
+
+{% block title %}Registrar Profesor{% endblock %}
+
+{% block head %}
+<script src="https://kit.fontawesome.com/a2d04d6c0b.js" crossorigin="anonymous"></script>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/formulario.css') }}">
+<style>
+  .autocomplete-wrapper {
+    position: relative;
+    width: 100%;
+  }
+  #resultados {
+    border: 1px solid #ccc;
+    max-height: 200px;
+    overflow-y: auto;
+    margin: 0;
+    padding-left: 0;
+    position: absolute;
+    width: 100%;
+    background: white;
+    z-index: 1000;
+    list-style-type: none;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    border-radius: 0 0 6px 6px;
+  }
+  #resultados li {
+    padding: 10px 15px;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+  }
+  #resultados li:hover, #resultados li:focus {
+    background-color: #f0f0f0;
+    outline: none;
+  }
+  .input-group input[readonly] {
+      background-color: #e9ecef;
+      cursor: not-allowed;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="form-container">
+  <form method="POST" action="{{ url_for('main.registrar_profesor') }}">
+    <h2>Registrar Nuevo Profesor</h2>
+    <p class="text-muted">Busca un usuario del sistema para asignarle el rol de profesor.</p>
+
+    <div class="input-group">
+      <label for="usuario_buscar">Buscar Usuario</label>
+      <div class="autocomplete-wrapper">
+        <input type="text" id="usuario_buscar" autocomplete="off" placeholder="Escribe nombre o documento del usuario..." required>
+        <ul id="resultados" role="listbox"></ul>
+      </div>
+    </div>
+
+    <input type="hidden" name="id_usuario" id="id_usuario" required>
+
+    <div class="input-group">
+      <label for="nombre_completo">Nombre Completo</label>
+      <input type="text" name="nombre_completo" id="nombre_completo" readonly required>
+    </div>
+
+    <div class="input-group">
+      <label for="documento">Documento</label>
+      <input type="text" name="documento" id="documento" readonly required>
+    </div>
+
+    <div class="input-group">
+      <label for="especialidad">Especialidad</label>
+      <input type="text" name="especialidad" id="especialidad" placeholder="Ej: Matemáticas, Lenguaje..." required>
+    </div>
+
+    <div class="form-actions">
+        <button type="submit" class="btn btn-primary"><i class="fas fa-user-plus"></i> Registrar Profesor</button>
+        <a href="{{ url_for('main.profesores') }}" class="btn btn-secondary" style="text-decoration: none;"><i class="fas fa-arrow-left"></i> Volver</a>
+    </div>
+  </form>
+</div>
+
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+    const buscarUsuariosURL = "{{ url_for('main.buscar_usuarios') }}";
+    const inputBuscar = document.getElementById('usuario_buscar');
+    const inputIdUsuario = document.getElementById('id_usuario');
+    const resultados = document.getElementById('resultados');
+    const inputNombreCompleto = document.getElementById('nombre_completo');
+    const inputDocumento = document.getElementById('documento');
+
+    let timeout = null;
+
+    inputBuscar.addEventListener('input', function () {
+      clearTimeout(timeout);
+      const query = this.value.trim();
+      
+      // Limpiar campos si se borra la búsqueda
+      inputIdUsuario.value = '';
+      inputNombreCompleto.value = '';
+      inputDocumento.value = '';
+
+      if (query.length < 2) {
+        resultados.innerHTML = '';
+        resultados.style.display = 'none';
+        return;
+      }
+
+      timeout = setTimeout(() => {
+        fetch(`${buscarUsuariosURL}?q=${encodeURIComponent(query)}`)
+          .then(response => response.json())
+          .then(data => {
+            resultados.innerHTML = '';
+            resultados.style.display = 'block';
+            if (data.length === 0) {
+              resultados.innerHTML = '<li>No se encontraron usuarios</li>';
+              return;
+            }
+            data.forEach(usuario => {
+              const li = document.createElement('li');
+              li.textContent = usuario.label;
+              li.addEventListener('click', function () {
+                inputBuscar.value = usuario.label;
+                inputIdUsuario.value = usuario.id;
+                inputNombreCompleto.value = usuario.nombre;
+                inputDocumento.value = usuario.identificacion;
+                resultados.style.display = 'none';
+              });
+              resultados.appendChild(li);
+            });
+          }).catch(error => console.error('Error:', error));
+      }, 300);
+    });
+
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest('.autocomplete-wrapper')) {
+        resultados.style.display = 'none';
+      }
+    });
+  });
+</script>
+{% endblock %}

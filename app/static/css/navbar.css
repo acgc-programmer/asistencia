@@ -1,0 +1,516 @@
+/* === VARIABLES === */
+:root {
+    --primary-color: #1e40af;
+    --primary-dark: #1e3a8a;
+    --secondary-color: #fbbf24;
+    --text-light: #ffffff;
+    --text-dark: #1f2937;
+    --background-color: #f9fafb;
+    --success-color: #10b981;
+    --info-color: #3b82f6;
+    --warning-color: #f59e0b;
+    --danger-color: #ef4444;
+    --footer-bg: #f3f4f6;
+    --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+}
+
+/* === BASE === */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    background-size: cover;
+    background-repeat: no-repeat;
+    font-family: 'Inter', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: var(--background-color);
+    color: var(--text-dark);
+    line-height: 1.6;
+}
+
+/* === NAVBAR === */
+nav {
+    background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-dark) 100%);
+    color: var(--text-light);
+    padding: 1rem 2rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+    box-shadow: var(--shadow-md);
+    transition: all 0.3s ease;
+}
+
+/* === LOGO === */
+nav .logo {
+    font-size: 1.5rem;
+    font-weight: 800;
+    letter-spacing: -0.5px;
+    text-decoration: none;
+    color: var(--text-light);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    transition: transform 0.3s ease;
+}
+
+nav .logo:hover {
+    color: var(--secondary-color);
+    transform: scale(1.05);
+}
+
+/* === MENU NORMAL === */
+.nav-menu { /* Este es el contenedor de los enlaces en escritorio */
+    display: flex;
+    align-items: center;
+}
+
+.nav-menu ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+}
+
+.nav-menu li {
+    display: inline;
+}
+
+.nav-menu a {
+    color: var(--text-light);
+    text-decoration: none;
+    font-weight: 500;
+    font-size: 0.95rem;
+    padding: 0.6rem 1rem;
+    border-radius: 8px;
+    position: relative;
+    transition: all 0.3s ease;
+    display: block;
+}
+
+.nav-menu a:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+    color: var(--secondary-color);
+    transform: translateY(-2px);
+}
+
+/* Estilo para el enlace de la página activa */
+.nav-menu a.active {
+    background-color: rgba(251, 191, 36, 0.2);
+    color: var(--secondary-color);
+    font-weight: 600;
+}
+
+/* === LADO DERECHO DE LA NAVBAR === */
+.nav-right {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.btn {
+    background: linear-gradient(135deg, var(--secondary-color) 0%, #f59e0b 100%);
+    color: var(--primary-dark);
+    padding: 0.6rem 1.3rem;
+    border-radius: 8px;
+    font-weight: 600;
+    font-size: 0.95rem;
+    text-decoration: none;
+    transition: all 0.3s ease;
+    box-shadow: var(--shadow-sm);
+}
+
+.btn:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+    background: linear-gradient(135deg, #f59e0b 0%, var(--secondary-color) 100%);
+}
+
+/* === MENÚ DE USUARIO === */
+.user-menu-container {
+    position: relative;
+}
+
+.user-menu-btn {
+    background: rgba(255, 255, 255, 0.1);
+    border: 2px solid rgba(255, 255, 255, 0.2);
+    color: var(--text-light);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    font-size: 0.95rem;
+    padding: 0.5rem 1rem;
+    border-radius: 50px;
+    transition: all 0.3s ease;
+    font-weight: 500;
+}
+
+.user-menu-btn .profile-pic {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid rgba(255, 255, 255, 0.5);
+    flex-shrink: 0;
+    display: block;
+}
+
+.user-menu-btn i.fa-user-circle {
+    font-size: 2rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.user-menu-btn:hover {
+    background: rgba(255, 255, 255, 0.2);
+    border-color: var(--secondary-color);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.user-menu-btn .arrow-icon {
+    font-size: 0.75rem;
+    transition: transform 0.3s ease;
+}
+
+.user-menu-btn.active {
+    background: rgba(255, 255, 255, 0.2);
+}
+
+.user-menu-btn.active .arrow-icon {
+    transform: rotate(180deg);
+}
+
+.user-dropdown {
+    position: absolute;
+    top: calc(100% + 12px);
+    right: 0;
+    background-color: #fff;
+    border-radius: 16px;
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.2), 0 10px 10px -5px rgba(0, 0, 0, 0.1);
+    width: 240px;
+    z-index: 1001;
+    overflow: hidden;
+    display: none;
+    flex-direction: column;
+    opacity: 0;
+    transform: translateY(-10px);
+    transition: opacity 0.3s ease, transform 0.3s ease;
+    border: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.user-dropdown.active {
+    display: flex;
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.user-dropdown a {
+    color: var(--text-dark);
+    text-decoration: none;
+    padding: 1rem 1.3rem;
+    display: flex;
+    align-items: center;
+    gap: 0.9rem;
+    font-weight: 500;
+    font-size: 0.95rem;
+    transition: all 0.2s ease;
+    border-left: 3px solid transparent;
+}
+
+.user-dropdown a:hover {
+    background: linear-gradient(90deg, rgba(30, 64, 175, 0.08) 0%, transparent 100%);
+    color: var(--primary-color);
+    border-left-color: var(--primary-color);
+    padding-left: 1.5rem;
+}
+
+.user-dropdown a i {
+    width: 20px;
+    text-align: center;
+    font-size: 1.1rem;
+}
+
+/* === HAMBURGUESA Y RESPONSIVE === */
+.menu-toggle {
+    display: none;
+    font-size: 1.5rem;
+    cursor: pointer;
+    user-select: none;
+    background: rgba(255, 255, 255, 0.1);
+    border: 2px solid rgba(255, 255, 255, 0.2);
+    color: var(--text-light);
+    padding: 0.5rem 0.8rem;
+    border-radius: 8px;
+    transition: all 0.3s ease;
+}
+
+.menu-toggle:hover {
+    background: rgba(255, 255, 255, 0.15);
+}
+
+.menu-toggle:active {
+    transform: scale(0.95);
+}
+
+/* === FLASH MESSAGES === */
+.flash-messages {
+    position: fixed;
+    top: 80px;
+    right: 20px;
+    z-index: 2000;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    max-width: 400px;
+}
+
+.alert {
+    padding: 1rem 1.3rem;
+    border-radius: 12px;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text-light);
+    box-shadow: var(--shadow-lg);
+    animation: slideInRight 0.4s ease;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    min-width: 300px;
+}
+
+@keyframes slideInRight {
+    from {
+        opacity: 0;
+        transform: translateX(100px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+.alert-success {
+    background: linear-gradient(135deg, var(--success-color) 0%, #059669 100%);
+}
+
+.alert-info {
+    background: linear-gradient(135deg, var(--info-color) 0%, #2563eb 100%);
+}
+
+.alert-warning {
+    background: linear-gradient(135deg, var(--warning-color) 0%, #d97706 100%);
+    color: var(--text-light);
+}
+
+.alert-danger {
+    background: linear-gradient(135deg, var(--danger-color) 0%, #dc2626 100%);
+}
+
+.alert .close {
+    font-size: 1.3rem;
+    font-weight: bold;
+    line-height: 1;
+    color: inherit;
+    background: none;
+    border: none;
+    cursor: pointer;
+    opacity: 0.8;
+    transition: opacity 0.2s ease;
+    padding: 0;
+    margin-left: 10px;
+}
+
+.alert .close:hover {
+    opacity: 1;
+}
+
+/* === FOOTER === */
+footer {
+    border-top: 1px solid #e5e7eb;
+    padding: 2rem 1rem;
+    margin-top: 4rem;
+    text-align: center;
+    color: #6b7280;
+    font-size: 0.9rem;
+    background-color: var(--footer-bg);
+}
+
+footer p {
+    margin-bottom: 1rem;
+    font-weight: 500;
+}
+
+footer .flex {
+    display: flex;
+    justify-content: center;
+    gap: 1.5rem;
+    align-items: center;
+}
+
+footer .flex a {
+    font-size: 1rem;
+    color: var(--text-dark);
+    text-decoration: none;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+footer .flex a:hover {
+    color: var(--primary-color);
+    transform: translateY(-2px);
+}
+
+footer .flex a i {
+    font-size: 1.2rem;
+}
+
+/* === MEDIA QUERIES PARA RESPONSIVE === */
+@media (max-width: 768px) {
+    nav {
+        padding: 1rem 1.5rem;
+    }
+
+    .nav-menu { /* Ocultamos el menú de escritorio en móvil y lo preparamos para ser el panel deslizable */
+        display: none;
+        position: fixed;
+        top: 0;
+        right: -100%;
+        width: 280px;
+        height: 100vh;
+        background: linear-gradient(180deg, var(--primary-color) 0%, var(--primary-dark) 100%);
+        overflow-y: auto;
+        display: flex; /* Debe ser flex para que la transición funcione */
+        flex-direction: column;
+        transition: right 0.4s ease-in-out, opacity 0.4s ease-in-out, visibility 0.4s ease-in-out;
+        box-shadow: -5px 0 20px rgba(0, 0, 0, 0.3);
+        padding-top: 70px;
+        z-index: 999;
+        opacity: 0; /* Oculto por opacidad */
+        visibility: hidden; /* Oculto para accesibilidad y clics */
+    }
+
+    .menu-toggle {
+        display: block;
+        order: 3;
+    }
+
+    .nav-menu.active {
+        right: 0;
+        opacity: 1;
+        visibility: visible;
+    }
+
+    .nav-menu ul {
+        flex-direction: column;
+        width: 100%;
+        align-items: flex-start;
+        padding: 1rem 0;
+        gap: 0;
+    }
+
+    .nav-menu li {
+        width: 100%;
+        text-align: left;
+    }
+
+    .nav-menu a {
+        display: block;
+        width: 100%;
+        padding: 1rem 1.5rem;
+        border-radius: 0;
+        font-size: 1rem;
+    }
+
+    .nav-menu a:hover {
+        background-color: rgba(255, 255, 255, 0.15);
+        transform: translateX(5px);
+    }
+
+    .nav-menu a.active {
+        background: linear-gradient(90deg, rgba(251, 191, 36, 0.3) 0%, transparent 100%);
+        border-left: 4px solid var(--secondary-color);
+    }
+
+    .nav-right {
+        gap: 0.8rem;
+        order: 2;
+    }
+
+    .user-menu-btn span {
+        display: none;
+    }
+
+    .user-menu-btn {
+        padding: 0.4rem;
+        border-radius: 50%;
+        width: 48px;
+        height: 48px;
+        justify-content: center;
+        align-items: center;
+    }
+    #foto {
+        display: none;
+    }
+    .username {
+        display: none;
+    }
+    .user-menu-btn .profile-pic {
+        width: 40px;
+        height: 40px;
+        border: 2px solid rgba(255, 255, 255, 0.6);
+    }
+
+    .user-menu-btn i.fa-user-circle {
+        font-size: 2.2rem;
+    }
+
+    .user-dropdown {
+        right: -10px;
+    }
+
+    .btn {
+        padding: 0.5rem 1rem;
+        font-size: 0.9rem;
+    }
+
+    .flash-messages {
+        top: 70px;
+        right: 10px;
+        left: 10px;
+        max-width: none;
+    }
+
+    .alert {
+        min-width: auto;
+        font-size: 13px;
+    }
+
+    footer .flex {
+        flex-direction: column;
+        gap: 1rem;
+    }
+}
+
+@media (max-width: 480px) {
+    nav .logo {
+        font-size: 1.3rem;
+    }
+
+    .nav-menu {
+        width: 250px;
+    }
+}

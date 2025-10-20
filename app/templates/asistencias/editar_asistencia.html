@@ -1,0 +1,45 @@
+{% extends 'navbar.html' %}
+
+{% block title %}Editar Asistencia{% endblock %}
+
+{% block head %}
+<script src="https://kit.fontawesome.com/a2d04d6c0b.js" crossorigin="anonymous"></script>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/formulario.css') }}">
+<style>
+    .form-actions {
+        display: flex;
+        gap: 1rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="form-container">
+    <form method="POST">
+        <h2>Editar Asistencia</h2>
+        <p class="text-muted">Actualiza el estado y las observaciones del registro de asistencia.</p>
+
+        <div class="input-group">
+            <label for="estado">Estado</label>
+            <select name="estado" id="estado" required>
+                <option value="Presente" {% if asistencia.estado == 'Presente' %}selected{% endif %}>Presente</option>
+                <option value="Ausente" {% if asistencia.estado == 'Ausente' %}selected{% endif %}>Ausente</option>
+                <option value="Tarde" {% if asistencia.estado == 'Tarde' %}selected{% endif %}>Tarde</option>
+                <option value="Justificado" {% if asistencia.estado == 'Justificado' %}selected{% endif %}>Justificado</option>
+            </select>
+        </div>
+
+        <div class="input-group">
+            <label for="observaciones">Observaciones</label>
+            <textarea name="observaciones" id="observaciones" rows="3">{{ asistencia.observaciones or '' }}</textarea>
+        </div>
+
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> Actualizar Asistencia</button>
+            <a href="{{ url_for('main.asistencias', fecha=fecha_filtro, id_curso=id_curso_filtro) }}" class="btn btn-secondary" style="text-decoration: none;">
+                <i class="fas fa-arrow-left"></i> Volver
+            </a>
+        </div>
+    </form>
+</div>
+{% endblock %}

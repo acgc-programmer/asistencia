@@ -1,0 +1,42 @@
+{% extends 'navbar.html' %}
+
+{% block title %}Editar Curso{% endblock %}
+
+{% block head %}
+<script src="https://kit.fontawesome.com/a2d04d6c0b.js" crossorigin="anonymous"></script>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/formulario.css') }}">
+<style>
+    .form-actions {
+        display: flex;
+        gap: 1rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="form-container">
+    <form method="POST">
+        <h2>Editar Curso</h2>
+        <p class="text-muted">Actualiza el grado y el profesor asignado al curso.</p>
+
+        <div class="input-group">
+            <label for="grado">Grado</label>
+            <input type="text" name="grado" id="grado" value="{{ curso[1] or '' }}" required>
+        </div>
+
+        <div class="input-group">
+            <label for="id_profesor">Profesor</label>
+            <select name="id_profesor" id="id_profesor" required>
+                {% for profesor in profesores %}
+                    <option value="{{ profesor[0] }}" {% if profesor[0] == curso[2] %}selected{% endif %}>{{ profesor[1] }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> Actualizar Curso</button>
+            <a href="{{ url_for('main.cursos') }}" class="btn btn-secondary" style="text-decoration: none;"><i class="fas fa-arrow-left"></i> Volver</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

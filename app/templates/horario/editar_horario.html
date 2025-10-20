@@ -1,0 +1,139 @@
+{% extends "navbar.html" %}
+{% block title %}Editar Horario{% endblock %}
+
+{% block head %}
+<script src="https://kit.fontawesome.com/a2d04d6c0b.js" crossorigin="anonymous"></script>
+<style>
+    .form-container {
+        max-width: 800px;
+        margin: 2rem auto;
+        background-color: #fff;
+        padding: 2.5rem;
+        border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+    .form-container h2 {
+        text-align: center;
+        margin-bottom: 2rem;
+        color: var(--primary-color);
+    }
+    .form-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 1.5rem;
+    }
+    .form-group label {
+        font-weight: 600;
+        margin-bottom: 0.5rem;
+        display: block;
+    }
+    .form-group .form-control {
+        width: 100%;
+        padding: 0.75rem;
+        border: 1px solid #ccc;
+        border-radius: 6px;
+        font-size: 1rem;
+        transition: all 0.2s ease;
+    }
+    .form-group .form-control:focus {
+        outline: none;
+        border-color: var(--primary-color);
+        box-shadow: 0 0 0 3px rgba(30, 58, 138, 0.15);
+    }
+    .form-actions {
+        margin-top: 2rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    /* --- ESTILOS PARA BOTONES --- */
+    .btn, .btn-primary, .btn-secondary {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.7rem 1.3rem;
+        border-radius: 6px;
+        font-weight: 600;
+        text-decoration: none;
+        cursor: pointer;
+        border: 1px solid transparent;
+        transition: all 0.2s ease;
+        font-size: 0.95rem;
+    }
+    .btn:hover, .btn-primary:hover, .btn-secondary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+    .btn-primary {
+        background-color: var(--primary-color);
+        color: var(--text-light);
+        border-color: var(--primary-color);
+    }
+    .btn-primary:hover {
+        background-color: var(--primary-color-dark);
+        border-color: var(--primary-color-dark);
+    }
+    .btn-secondary {
+        background-color: #6c757d;
+        color: white;
+        border-color: #6c757d;
+    }
+    .btn-secondary:hover { background-color: #5a6268; border-color: #545b62; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="form-container">
+    <form method="POST">
+        <h2>Editar Horario</h2>
+        <div class="form-grid">
+            <div class="form-group">
+                <label for="dia">Día de la Semana</label>
+                <select name="dia" id="dia" class="form-control" required>
+                    {% set dias = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"] %}
+                    {% for dia_semana in dias %}
+                    <option value="{{ dia_semana }}" {% if horario.dia_semana == dia_semana %}selected{% endif %}>{{ dia_semana }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="hora_inicio">Hora Inicio</label>
+                <input type="time" name="hora_inicio" class="form-control" value="{{ horario.hora_inicio.strftime('%H:%M') }}" required>
+            </div>
+            <div class="form-group">
+                <label for="hora_fin">Hora Fin</label>
+                <input type="time" name="hora_fin" class="form-control" value="{{ horario.hora_fin.strftime('%H:%M') }}" required>
+            </div>
+            <div class="form-group">
+                <label for="id_curso">Curso</label>
+                <select name="id_curso" class="form-control" required>
+                    {% for curso in cursos %}
+                    <option value="{{ curso.id_curso }}" {% if curso.id_curso == horario.id_curso %}selected{% endif %}>{{ curso.grado }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="id_profesor">Profesor</label>
+                <select name="id_profesor" class="form-control" required>
+                    {% for profesor in profesores %}
+                    <option value="{{ profesor.id_profesor }}" {% if profesor.id_profesor == horario.id_profesor %}selected{% endif %}>{{ profesor.nombre_completo }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="id_asignatura">Asignatura</label>
+                <select name="id_asignatura" class="form-control" required>
+                    {% for asignatura in asignaturas %}
+                    <option value="{{ asignatura.id_asignatura }}" {% if asignatura.id_asignatura|string == horario.asignatura %}selected{% endif %}>{{ asignatura.tema }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+        <div class="form-actions">
+            <a href="{{ url_for('main.horario') }}" class="btn btn-secondary"><i class="fas fa-arrow-left"></i> Volver</a>
+            <button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> Actualizar Horario</button>
+        </div>
+    </form>
+</div>
+{% endblock %}

@@ -1,0 +1,176 @@
+{% extends "navbar.html" %}
+{% block title %}Registrar Horario{% endblock %}
+
+{% block head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/formulario.css') }}">
+<style>
+    .autocomplete-wrapper {
+        position: relative;
+        width: 100%;
+    }
+
+    #profesores_resultados {
+        border: 1px solid #ccc;
+        max-height: 200px;
+        overflow-y: auto;
+        margin: 0;
+        padding-left: 0;
+        position: absolute;
+        width: 100%;
+        background: white;
+        z-index: 1000;
+        list-style-type: none;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        border-radius: 0 0 6px 6px;
+    }
+
+    #profesores_resultados li {
+        padding: 10px 15px;
+        cursor: pointer;
+        transition: background-color 0.2s ease;
+    }
+
+    #profesores_resultados li:hover,
+    #profesores_resultados li:focus {
+        background-color: #f0f0f0;
+        outline: none;
+    }
+</style>
+<script src="https://kit.fontawesome.com/a2d04d6c0b.js" crossorigin="anonymous"></script>
+{% endblock %}
+
+{% block content %}
+<div class="form-container">
+    <form method="POST">
+        <h2>Registrar Nuevo Horario</h2>
+        <p class="text-muted">Completa los detalles para añadir una nueva clase al horario general.</p>
+
+        <div class="input-group">
+            <label for="dia">Día de la Semana</label>
+            <select name="dia" id="dia" required>
+                <option value="Lunes">Lunes</option>
+                <option value="Martes">Martes</option>
+                <option value="Miércoles">Miércoles</option>
+                <option value="Jueves">Jueves</option>
+                <option value="Viernes">Viernes</option>
+                <option value="Sábado">Sábado</option>
+            </select>
+        </div>
+
+        <div class="input-group">
+            <label for="hora_inicio">Hora de Inicio</label>
+            <input type="time" id="hora_inicio" name="hora_inicio" required>
+        </div>
+
+        <div class="input-group">
+            <label for="hora_fin">Hora de Fin</label>
+            <input type="time" id="hora_fin" name="hora_fin" required>
+        </div>
+
+        <div class="input-group">
+            <label for="id_curso">Curso</label>
+            <select name="id_curso" id="id_curso" required>
+                <option value="">Selecciona un curso</option>
+                {% for curso in cursos %}
+                <option value="{{ curso[0] }}">{{ curso[1] }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="input-group">
+            <label for="id_asignatura">Asignatura</label>
+            <select name="id_asignatura" id="id_asignatura" required>
+                <option value="">Selecciona una asignatura</option>
+                {% for asignatura in asignaturas %}
+                <option value="{{ asignatura[0] }}">{{ asignatura[1] }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="input-group">
+            <label for="profesor_nombre">Profesor</label>
+            <div class="autocomplete-wrapper">
+                <input type="text" id="profesor_nombre" name="profesor_nombre" class="form-control"
+                    placeholder="Escribe para buscar un profesor..." autocomplete="off" required>
+                <ul id="profesores_resultados" role="listbox"></ul>
+            </div>
+            <input type="hidden" id="id_profesor" name="id_profesor" required>
+        </div>
+
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> Guardar Horario</button>
+            <a href="{{ url_for('main.horario') }}" class="btn btn-secondary"><i class="fas fa-arrow-left"></i>
+                Volver</a>
+        </div>
+    </form>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const profesorInput = document.getElementById('profesor_nombre');
+        const profesorHiddenInput = document.getElementById('id_profesor');
+        const resultadosList = document.getElementById('profesores_resultados');
+        const form = document.querySelector('form');
+        let timeout = null;
+
+        profesorInput.addEventListener('input', () => {
+            clearTimeout(timeout);
+            const query = profesorInput.value.trim();
+            profesorHiddenInput.value = ''; // Limpiar ID al escribir
+
+            if (query.length < 2) {
+                resultadosList.innerHTML = '';
+                resultadosList.style.display = 'none';
+                return;
+            }
+
+            timeout = setTimeout(() => {
+                fetch(`/buscar_profesores?q=${encodeURIComponent(query)}`)
+                    .then(res => res.ok ? res.json() : Promise.reject('Error al buscar'))
+                    .then(data => {
+                        resultadosList.innerHTML = '';
+                        resultadosList.style.display = 'block';
+                        if (data.length === 0) {
+                            resultadosList.innerHTML = '<li role="option" aria-disabled="true">No se encontraron profesores</li>';
+                            return;
+                        }
+                        data.forEach(prof => {
+                            const li = document.createElement('li');
+                            li.textContent = prof.label;
+                            li.setAttribute('role', 'option');
+                            li.tabIndex = 0;
+                            li.addEventListener('click', () => {
+                                profesorInput.value = prof.label;
+                                profesorHiddenInput.value = prof.id;
+                                resultadosList.innerHTML = '';
+                                resultadosList.style.display = 'none';
+                            });
+                            li.addEventListener('keydown', (e) => {
+                                if (e.key === 'Enter' || e.key === ' ') {
+                                    e.preventDefault();
+                                    li.click();
+                                }
+                            });
+                            resultadosList.appendChild(li);
+                        });
+                    })
+                    .catch(console.error);
+            }, 300);
+        });
+
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('.autocomplete-wrapper')) {
+                resultadosList.style.display = 'none';
+            }
+        });
+
+        form.addEventListener('submit', function (e) {
+            if (!profesorHiddenInput.value && profesorInput.value) {
+                alert('Por favor, selecciona un profesor válido de la lista.');
+                e.preventDefault();
+                profesorInput.focus();
+            }
+        });
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,2196 @@
+from flask import Flask, render_template, request, redirect, url_for, Blueprint, session, flash
+from functools import wraps
+from app.db import get_db_connection
+from werkzeug.security import generate_password_hash, check_password_hash
+from datetime import datetime
+import psycopg2.extras
+import re
+import random
+from werkzeug.utils import secure_filename
+import os
+
+main = Blueprint('main', __name__)
+from functools import wraps
+from flask import session, redirect, url_for
+
+# admin y profesores
+def admin_profesor_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if 'user_id' not in session:
+            return redirect(url_for('main.login'))
+        # Roles: 1=Admin, 2=Profesor
+        if session.get('user_role') not in [1, 2]:
+            flash('Acceso no autorizado. Se requiere rol de Administrador o Profesor.', 'danger')
+            if session.get('user_role') == 3: # Estudiante
+                return redirect(url_for('main.mi_asistencia'))
+            return redirect(url_for('main.index')) # Redirección por defecto
+        return f(*args, **kwargs)
+    return decorated_function
+
+# Decorador que asegura que el usuario esté autenticado y sea admin
+def admin_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if 'user_id' not in session:
+            return redirect(url_for('main.login'))
+        if session.get('user_role') != 1:
+            flash('Acceso denegado. Esta página es solo para administradores.', 'danger')
+            return redirect(url_for('main.index')) # Redirige a una página general
+        return f(*args, **kwargs)
+    return decorated_function
+
+# Decorador que asegura que el usuario esté autenticado
+def login_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if 'user_id' not in session:  # Si el usuario no está autenticado
+            return redirect(url_for('main.login'))  # Redirige a login
+        return f(*args, **kwargs)  # Ejecuta la función original si está autenticado
+    return decorated_function
+
+# Decorador que asegura que el usuario sea estudiante
+def student_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        # Asumiendo que el rol de estudiante es 3
+        if 'user_id' not in session:
+            return redirect(url_for('main.login'))
+        if session.get('user_role') != 3:
+            flash('Acceso denegado. Esta página es solo para estudiantes.', 'danger')
+            # Redirigir al dashboard correspondiente si no es estudiante
+            if session.get('user_role') == 1: # Admin
+                return redirect(url_for('main.admin_dashboard'))
+            return redirect(url_for('main.index')) # Redirección por defecto para otros roles
+        return f(*args, **kwargs)
+    return decorated_function
+
+
+# -------------------------------------------------------------------------------
+# Ruta para el registro de nuevos usuarios
+# -------------------------------------------------------------------------------
+
+
+
+
+
+
+
+
+
+@main.route('/logout')
+@login_required
+def logout():
+    session.pop('user_id', None)
+    return redirect(url_for('main.login')) # Este logout está duplicado, pero lo dejamos por ahora.
+
+@main.app_context_processor
+def inject_user():
+    return dict(user=g.user)
+from flask import (
+    Blueprint, render_template, request, redirect,
+    url_for, session, flash, g, current_app
+)
+from functools import wraps
+from werkzeug.security import generate_password_hash, check_password_hash
+from datetime import datetime
+from itsdangerous import URLSafeTimedSerializer
+from flask_mail import Message
+from app.db import get_db_connection
+from app import mail  # Flask-Mail instancia importada desde tu app principal
+import hashlib # Para Gravatar
+
+main = Blueprint('main', __name__)
+
+# Filtro personalizado para Jinja2
+@main.app_template_filter('hash')
+def string_hash(s):
+    return hash(s)
+
+# Decorador para proteger rutas
+def login_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if 'user_id' not in session:
+            return redirect(url_for('main.login'))
+        return f(*args, **kwargs)
+    return decorated_function
+
+# Token de recuperación
+def generate_confirmation_token(email):
+    serializer = URLSafeTimedSerializer(current_app.config['SECRET_KEY'])
+    return serializer.dumps(email, salt=current_app.config['SECURITY_PASSWORD_SALT'])
+
+def confirm_token(token, expiration=3600):
+    serializer = URLSafeTimedSerializer(current_app.config['SECRET_KEY'])
+    try:
+        email = serializer.loads(token, salt=current_app.config['SECURITY_PASSWORD_SALT'], max_age=expiration)
+    except Exception:
+        return False
+    return email
+
+# Función para enviar correo de recuperación
+from flask_mail import Message, Mail
+from flask import current_app
+
+mail = Mail()
+def send_email(to_email, reset_url):
+    msg = Message("Restablecer Contraseña",
+                  sender="ACGC Estudio <acgc.estudio@gmail.com>",  # Aquí definimos el remitente
+                  recipients=[to_email])
+    
+    # El cuerpo del mensaje
+    msg.body = f"""
+Hola,
+
+Para restablecer tu contraseña, haz clic en el siguiente enlace:
+
+{reset_url}
+
+Si no solicitaste este cambio, ignora este mensaje.
+
+Saludos,
+Tu equipo
+"""
+    
+    try:
+        mail.send(msg)
+        print("Correo enviado exitosamente.")
+    except Exception as e:
+        print(f"Error al enviar el correo: {e}")
+
+# Función para enviar correo de verificación con diseño HTML
+def send_verification_email(to_email, codigo):
+    try:
+        html_body = render_template(
+            'email/verificacion.html', 
+            codigo=codigo, 
+            year=datetime.now().year
+        )
+        msg = Message("Tu código de verificación - IED Simón Bolívar",
+                      sender="ACGC Estudio <acgc.estudio@gmail.com>",
+                      recipients=[to_email])
+        msg.html = html_body
+        mail.send(msg)
+        return True
+    except Exception as e:
+        flash(f'Error al enviar el correo de verificación: {e}', 'danger')
+        return False
+
+# --- INICIO: Gestión centralizada de la conexión a la BD ---
+def get_db():
+    """Abre una nueva conexión a la base de datos si no existe una para la petición actual."""
+    if 'db' not in g:
+        print("🔗 Abriendo nueva conexión a la base de datos para esta petición...")
+        g.db = get_db_connection()
+    return g.db
+
+@main.teardown_app_request
+def close_db(exception=None):
+    """Cierra la conexión a la base de datos al final de la petición."""
+    db = g.pop('db', None)
+    if db is not None:
+        db.close()
+        print("✅ Conexión a la base de datos cerrada.")
+# --- FIN: Gestión centralizada de la conexión a la BD ---
+
+# Antes de cada request cargamos datos del usuario en g.user
+@main.before_app_request
+def load_logged_in_user():
+    # Evitar ejecutar esto para las rutas de archivos estáticos
+    if request.endpoint == 'static':
+        return
+
+    user_id = session.get('user_id')
+    if user_id is None:
+        g.user = None
+    else:
+        cursor = get_db().cursor()
+        cursor.execute("SELECT id_usuario, username, id_rol, correo FROM usuarios WHERE id_usuario = %s", (user_id,))
+        user = cursor.fetchone()
+        cursor.close()
+        if user:
+            # Generamos el hash del correo para la URL de Gravatar
+            email_hash = hashlib.md5(user[3].lower().encode('utf-8')).hexdigest()
+            gravatar_url = f"https://www.gravatar.com/avatar/{email_hash}?d=identicon&s=32"
+            g.user = {'id': user[0], 'username': user[1], 'role': user[2], 'email': user[3], 'avatar': gravatar_url} # Añadimos el avatar al objeto de usuario
+        else:
+            g.user = None
+
+# Inyectamos 'user' en todos los templates
+@main.app_context_processor
+def inject_user():
+    return dict(user=g.user)
+
+# Ruta principal
+@main.route('/')
+def index():
+    
+    # Si el usuario es admin, redirigir al dashboard de admin
+    if session.get('user_role') == 1:
+        return redirect(url_for('main.admin_dashboard'))
+
+    return render_template('index.html')
+
+# 
+@main.route('/registro', methods=['GET', 'POST'])
+def registro():
+    if request.method == 'POST':
+        username = request.form['username']
+        password = request.form['password']
+        correo = request.form['correo']
+        nombre_completo = request.form['nombre_completo']
+        identificacion = request.form['identificacion']
+        id_rol = request.form['id_rol']
+
+        conn = get_db()
+        cursor = conn.cursor()
+        cursor.execute("SELECT 1 FROM usuarios WHERE correo = %s OR identificacion = %s", (correo, identificacion))
+        exists = cursor.fetchone()
+        if exists:
+            flash('El correo o la identificación ya están registrados.', 'warning')
+            cursor.close()
+            return redirect(url_for('main.registro'))
+
+        # Generar código de verificación
+        codigo = random.randint(100000, 999999)
+
+        # Guardar datos temporales en sesión
+        session['registro_temporal'] = {
+            'username': username,
+            'password': generate_password_hash(password),
+            'correo': correo,
+            'nombre_completo': nombre_completo,
+            'identificacion': identificacion,
+            'id_rol': id_rol,
+            'codigo': str(codigo)
+        }
+
+        # Enviar el correo
+        try:
+            if send_verification_email(correo, codigo):
+                flash('Se envió un código de verificación al correo proporcionado.', 'info')
+            else:
+                return redirect(url_for('main.registro')) # Si el correo falla, redirige
+            return redirect(url_for('main.verificar')) # Si el correo se envía, va a verificar
+        except Exception as e:
+            flash(f'Ocurrió un error inesperado: {e}', 'danger')
+            return redirect(url_for('main.registro'))
+    else: # GET: Cargar roles para el formulario
+        cursor = get_db().cursor(cursor_factory=psycopg2.extras.DictCursor)
+        try:
+            cursor.execute("SELECT id_rol, nombre AS nombre_rol FROM roles WHERE id_rol != 1") # Excluir rol de admin
+            roles = cursor.fetchall()
+        finally:
+            cursor.close()
+        return render_template('auth/registro.html', roles=roles)
+
+
+
+
+# Login
+@main.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        identifier = request.form['username'] # Este campo ahora puede ser usuario o correo
+        password = request.form['password']
+
+        try:
+            conn = get_db()
+            cursor = conn.cursor()
+
+            # Verificar si el usuario existe por nombre de usuario o correo
+            cursor.execute("""
+                SELECT id_usuario, password, id_rol FROM usuarios 
+                WHERE (username = %s OR correo = %s) AND estado = TRUE
+            """, (identifier, identifier))
+            user = cursor.fetchone()
+
+            cursor.close()
+
+            if user:
+                # Verificar la contraseña
+                if check_password_hash(user[1], password):
+                    session['user_id'] = user[0]  # Almacenar id de usuario en la sesión
+                    session['user_role'] = user[2]  # Almacenar el rol del usuario
+
+                    flash('Has iniciado sesión correctamente.', 'success')
+
+                    # Redirigir según el rol
+                    if user[2] == 1:  # Si es administrador (id_rol = 1)
+                        return redirect(url_for('main.admin_dashboard'))
+                    elif user[2] == 3: # Si es estudiante (id_rol = 3)
+                        return redirect(url_for('main.mi_asistencia'))
+                    else:
+                        return redirect(url_for('main.index'))
+                else:
+                    flash('Contraseña incorrecta.', 'danger')
+            else:
+                flash('Usuario no encontrado o inactivo.', 'danger')
+
+        except Exception as e:
+            flash(f'Ocurrió un error al iniciar sesión: {e}', 'danger')
+
+    return render_template('auth/login.html')
+
+
+# Logout
+@main.route('/logout')
+@login_required
+def logout():
+    session.clear()
+    flash('Has cerrado sesión.', 'info')
+    return redirect(url_for('main.login'))
+
+
+@main.route('/admin_dashboard')
+def admin_dashboard():
+    return render_template('admin_dashboard.html')
+
+
+# profesores
+@main.route('/profesores')
+@admin_required
+def profesores():
+    page = request.args.get('page', 1, type=int)
+    per_page = 10  # Número de profesores por página
+    offset = (page - 1) * per_page
+
+    conn = get_db()
+    cursor = conn.cursor()
+
+    # Obtener el total de profesores para la paginación
+    cursor.execute("SELECT COUNT(*) FROM profesores")
+    total_items = cursor.fetchone()[0]
+    total_pages = (total_items + per_page - 1) // per_page
+
+    # Obtener los profesores para la página actual
+    cursor.execute("""
+        SELECT id_profesor, nombre_completo, documento, especialidad
+        FROM profesores
+        ORDER BY nombre_completo
+        LIMIT %s OFFSET %s
+    """, (per_page, offset))
+    lista_profesores = cursor.fetchall()
+
+    cursor.close()
+
+    return render_template('profesores/profesores.html', profesores=lista_profesores, 
+                           page=page, total_pages=total_pages)
+
+
+@main.route('/registrar_profesor', methods=['GET', 'POST'])
+@login_required
+def registrar_profesor():
+    if request.method == 'POST':
+        id_usuario = request.form.get('id_usuario')
+        nombre_completo = request.form['nombre_completo']
+        documento = request.form['documento']
+        especialidad = request.form['especialidad']
+
+        if not id_usuario:
+            flash('Debe seleccionar un usuario válido.', 'danger')
+            return redirect(url_for('main.registrar_profesor'))
+
+        conn = get_db()
+        cursor = conn.cursor()
+        try:
+            # Verificar si el usuario ya es un profesor
+            cursor.execute("SELECT 1 FROM profesores WHERE id_usuario = %s", (id_usuario,))
+            if cursor.fetchone():
+                flash('Este usuario ya está registrado como profesor.', 'warning')
+                return redirect(url_for('main.profesores'))
+
+            # Si no existe, insertarlo
+            cursor.execute("""
+                INSERT INTO profesores (id_usuario, nombre_completo, documento, especialidad)
+                VALUES (%s, %s, %s, %s)
+            """, (id_usuario, nombre_completo, documento, especialidad))
+            conn.commit()
+            flash('Profesor registrado exitosamente.', 'success')
+        except Exception as e:
+            conn.rollback()
+            flash(f'Error al registrar profesor: {e}', 'danger')
+        finally:
+            cursor.close()
+
+        return redirect(url_for('main.profesores'))
+
+    return render_template('profesores/registrar_profesor.html')
+
+
+
+
+@main.route('/editar_profesor/<int:id>', methods=['GET', 'POST'])
+@login_required
+def editar_profesor(id):
+    conn = get_db()
+    cursor = conn.cursor()
+
+    if request.method == 'POST':
+        nombre_completo = request.form['nombre_completo']
+        documento = request.form['documento']
+        especialidad = request.form['especialidad']
+
+        try:
+            cursor.execute("""
+                UPDATE profesores
+                SET nombre_completo = %s, documento = %s, especialidad = %s
+                WHERE id_profesor = %s
+            """, (nombre_completo, documento, especialidad, id))
+            conn.commit()
+            flash('Profesor actualizado exitosamente.', 'success')
+        except Exception as e:
+            flash(f'Error al actualizar profesor: {e}', 'danger')
+        finally:
+            cursor.close()
+
+        return redirect(url_for('main.profesores'))
+    else:
+        cursor.execute("SELECT * FROM profesores WHERE id_profesor = %s", (id,))
+        profesor = cursor.fetchone()
+        cursor.close()
+        return render_template('profesores/editar_profesor.html', profesor=profesor)
+
+
+
+@main.route('/eliminar_profesor/<int:id>', methods=['POST', 'GET'])
+@login_required
+def eliminar_profesor(id):
+    conn = get_db()
+    cursor = conn.cursor()
+
+    try:
+        # El orden de eliminación es crucial para no violar las restricciones de clave foránea.
+
+        # 1. Eliminar las entradas de horarios donde el profesor imparte clase.
+        cursor.execute("DELETE FROM horarios WHERE id_profesor = %s", (id,))
+
+        # 2. Desvincular al profesor de la tabla intermedia asignatura_profesores.
+        cursor.execute("DELETE FROM asignatura_profesores WHERE id_profesor = %s", (id,))
+
+        # 3. Eliminar los cursos que son dirigidos por este profesor.
+        # Si la base de datos tuviera ON DELETE CASCADE en las tablas que dependen de 'cursos',
+        # este paso eliminaría automáticamente asistencias, horarios de esos cursos, etc.
+        # Si no, se necesitarían más DELETEs aquí.
+        cursor.execute("DELETE FROM cursos WHERE id_profesor = %s", (id,))
+
+        # 4. Finalmente, eliminar al profesor de la tabla principal.
+        cursor.execute("DELETE FROM profesores WHERE id_profesor = %s", (id,))
+
+        conn.commit()
+        flash('Profesor y todos sus datos asociados (incluyendo cursos dirigidos) han sido eliminados.', 'success')
+    except Exception as e:
+        conn.rollback()
+        flash(f'Error al eliminar profesor: {e}', 'danger')
+    finally:
+        cursor.close()
+
+    return redirect(url_for('main.profesores'))
+
+
+
+# --------------------------------------------------------------------------------
+# Rutas para gestionar cursos
+# --------------------------------------------------------------------------------
+@main.route('/cursos')
+@admin_required
+def cursos():
+    page = request.args.get('page', 1, type=int)
+    per_page = 10
+    offset = (page - 1) * per_page
+
+    conn = get_db()
+    cursor = conn.cursor()
+
+    # Contar total de cursos
+    cursor.execute("SELECT COUNT(*) FROM cursos")
+    total_items = cursor.fetchone()[0]
+    total_pages = (total_items + per_page - 1) // per_page
+
+    # Obtener cursos paginados
+    cursor.execute("""
+        SELECT c.id_curso, c.grado, 
+               p.nombre_completo AS profesor
+        FROM cursos c
+        JOIN profesores p ON c.id_profesor = p.id_profesor
+        ORDER BY c.grado
+        LIMIT %s OFFSET %s
+    """, (per_page, offset))
+    lista_cursos = cursor.fetchall()
+    cursor.close()
+
+    return render_template('cursos/cursos.html', cursos=lista_cursos, page=page, total_pages=total_pages)
+
+
+@main.route('/registrar_curso', methods=['GET', 'POST'])
+@login_required
+def registrar_curso():
+    conn = get_db()
+    cursor = conn.cursor()
+
+    if request.method == 'POST':
+        grado = request.form['grado']
+        id_profesor = request.form['id_profesor']
+        cursor.execute("""
+            INSERT INTO cursos (grado, id_profesor)
+            VALUES (%s, %s)
+        """, (grado, id_profesor))
+        conn.commit()
+        cursor.close()
+        flash('Curso registrado exitosamente', 'success')
+        return redirect(url_for('main.cursos'))
+    cursor.execute("SELECT id_profesor, nombre_completo FROM profesores")
+    profesores = cursor.fetchall()
+    cursor.close()
+    print(profesores)
+    return render_template('cursos/registrar_curso.html', profesores=profesores)
+
+
+@main.route('/editar_curso/<int:id>', methods=['GET', 'POST'])
+@login_required
+def editar_curso(id):
+    conn = get_db()
+    cursor = conn.cursor()
+    if request.method == 'POST':
+        grado = request.form['grado']
+        id_profesor = request.form['id_profesor']
+        cursor.execute("""
+            UPDATE cursos
+            SET grado = %s, id_profesor = %s
+            WHERE id_curso = %s
+        """, (grado, id_profesor, id))
+        conn.commit()
+        cursor.close()
+        flash('Curso actualizado exitosamente', 'success')
+        return redirect(url_for('main.cursos'))
+    cursor.execute("SELECT * FROM cursos WHERE id_curso = %s", (id,))
+    curso = cursor.fetchone()
+    cursor.execute("SELECT id_profesor, nombre_completo FROM profesores")
+    profesores = cursor.fetchall()
+    cursor.close()
+    return render_template('cursos/editar_curso.html', curso=curso, profesores=profesores)
+
+@main.route('/eliminar_curso/<int:id>', methods=['POST', 'GET'])
+@login_required
+def eliminar_curso(id):
+    conn = get_db()
+    cursor = conn.cursor()
+    try:
+        # Para manejar las llaves foráneas, debemos eliminar los registros relacionados primero.
+        # El orden es importante para no violar otras restricciones.
+
+        # 1. Eliminar registros de asistencia asociados al curso.
+        cursor.execute("DELETE FROM asistencias WHERE id_curso = %s", (id,))
+
+        # 2. Eliminar horarios asociados al curso.
+        cursor.execute("DELETE FROM horarios WHERE id_curso = %s", (id,))
+
+        # 3. Eliminar asignaturas asociadas al curso.
+        cursor.execute("DELETE FROM asignatura WHERE id_curso = %s", (id,))
+
+        # 4. Eliminar las asociaciones de estudiantes con este curso.
+        cursor.execute("DELETE FROM estudiantes_cursos WHERE id_curso = %s", (id,))
+
+        # 5. Finalmente, eliminar el curso.
+        cursor.execute("DELETE FROM cursos WHERE id_curso = %s", (id,))
+        conn.commit()
+        flash('Curso y todos sus datos asociados han sido eliminados.', 'success')
+    except Exception as e:
+        conn.rollback()
+        flash(f'Error al eliminar curso: {e}', 'danger')
+    finally:
+        cursor.close()
+    return redirect(url_for('main.cursos'))
+
+
+
+# ------------------------------------------------------------------
+# Rutas para gestionar estudiates
+# ------------------------------------------------------------------
+
+@main.route('/estudiantes')
+@admin_required
+def estudiantes():
+    conn = get_db()
+    cursor = conn.cursor()
+
+    # Obtener estudiantes con curso y grado
+    cursor.execute("""
+        SELECT e.id_estudiante, e.nombre, c.grado AS curso
+        FROM estudiantes e
+        JOIN estudiantes_cursos ec ON e.id_estudiante = ec.id_estudiante
+        JOIN cursos c ON ec.id_curso = c.id_curso
+        ORDER BY c.grado, e.nombre
+    """)
+
+    lista_estudiantes = cursor.fetchall()
+
+    cursor.close()
+
+    # Agrupar estudiantes por curso (grado)
+    estudiantes_por_curso = {}
+    for estudiante in lista_estudiantes:
+        curso = estudiante[2]
+        if curso not in estudiantes_por_curso:
+            estudiantes_por_curso[curso] = []
+        estudiantes_por_curso[curso].append(estudiante)
+
+    return render_template('estudiantes/estudiantes.html', estudiantes_por_grado=estudiantes_por_curso)
+
+@main.route('/buscar_usuarios', methods=['GET'])
+def buscar_usuarios():
+    q = request.args.get('q', '')
+    try:
+        conn = get_db()
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT id_usuario, nombre_completo, identificacion, username
+            FROM usuarios
+            WHERE nombre_completo ILIKE %s OR identificacion ILIKE %s
+            LIMIT 10
+        """, (f'%{q}%', f'%{q}%'))
+        usuarios = cursor.fetchall()
+    except Exception as e:
+        print(f"Error en buscar_usuarios: {e}")
+        return jsonify([]), 500
+    finally:
+        cursor.close()
+
+    results = []
+    for u in usuarios:
+        results.append({
+            'id': u[0],
+            'label': f"{u[1]} - {u[2]}",
+            'nombre': u[1],
+            'identificacion': u[2],
+            'username': u[3]
+        })
+        print(u)
+
+    return jsonify(results)
+
+
+
+
+@main.route('/registrar_estudiante', methods=['GET', 'POST'])
+def registrar_estudiante():
+    conn = get_db()
+    cursor = conn.cursor()
+
+    if request.method == 'POST':
+        nombre_completo = request.form['nombre_completo']
+        documento = request.form['documento']
+        id_usuario = request.form['id_usuario']
+        id_curso = request.form['curso']
+
+        # Obtener grado del curso seleccionado
+        cursor.execute("SELECT grado FROM cursos WHERE id_curso = %s", (id_curso,))
+        grado_result = cursor.fetchone()
+        if grado_result:
+            grado = grado_result[0]
+        else:
+            flash('Curso no válido', 'error')
+            cursor.close()
+            return redirect(url_for('main.registrar_estudiante'))
+
+        # Verificar si el usuario es un profesor
+        cursor.execute("SELECT id_rol FROM usuarios WHERE id_usuario = %s", (id_usuario,))
+        user_role_result = cursor.fetchone()
+        if user_role_result and user_role_result[0] == 2: # Asumiendo que el rol de profesor es 2
+            flash('Un usuario con rol de profesor no puede ser registrado como estudiante.', 'danger')
+            cursor.close()
+            return redirect(url_for('main.registrar_estudiante'))
+
+        # Verificar si el documento ya está registrado en la tabla de estudiantes
+        cursor.execute("SELECT 1 FROM estudiantes WHERE documento = %s", (documento,))
+        documento_existente = cursor.fetchone()
+        if documento_existente:
+            flash('El documento de identificación ya está registrado para otro estudiante.', 'danger')
+            cursor.close()
+            return redirect(url_for('main.registrar_estudiante'))
+
+
+        # Verificar si el usuario ya está registrado como estudiante
+        cursor.execute("SELECT id_estudiante FROM estudiantes WHERE id_usuario = %s", (id_usuario,))
+        estudiante_existente = cursor.fetchone()
+
+        if estudiante_existente:
+            id_estudiante = estudiante_existente[0]
+            flash('El usuario ya está registrado como estudiante.', 'info')
+        else:
+            # Registrar nuevo estudiante y obtener ID con RETURNING
+            cursor.execute("""
+                INSERT INTO estudiantes (nombre, documento, grado, id_usuario) 
+                VALUES (%s, %s, %s, %s)
+                RETURNING id_estudiante
+            """, (nombre_completo, documento, grado, id_usuario))
+            id_estudiante = cursor.fetchone()[0]
+            conn.commit()
+            flash('Estudiante registrado correctamente.', 'success')
+
+        # Relacionar estudiante con curso (evitar duplicados)
+        cursor.execute("""
+            INSERT INTO estudiantes_cursos (id_estudiante, id_curso)
+            VALUES (%s, %s)
+            ON CONFLICT DO NOTHING
+        """, (id_estudiante, id_curso))
+        conn.commit()
+
+        cursor.close()
+        return redirect(url_for('main.registrar_estudiante'))
+
+    # Método GET: Obtener cursos con nombre del profesor
+    cursor.execute("""
+        SELECT c.id_curso, c.grado, p.nombre_completo
+        FROM cursos c
+        LEFT JOIN profesores p ON c.id_profesor = p.id_profesor
+        ORDER BY c.grado
+    """)
+    cursos = cursor.fetchall()
+
+    cursor.close()
+
+    return render_template('estudiantes/registrar_estudiante.html', cursos=cursos)
+
+
+
+
+
+
+@main.route('/editar_estudiante/<int:id>', methods=['GET', 'POST'])
+def editar_estudiante(id):
+    conn = get_db()
+    cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+
+    try:
+        if request.method == 'POST':
+            nombre = request.form['nombre']
+            id_curso = request.form['id_curso']
+
+            # Actualiza estudiante
+            cursor.execute("""
+                UPDATE estudiantes
+                SET nombre = %s
+                WHERE id_estudiante = %s
+            """, (nombre, id))
+
+            # Actualiza curso en la tabla intermedia (asumiendo un estudiante por curso)
+            # Si un estudiante puede estar en varios cursos, la lógica debe cambiar.
+            cursor.execute("""
+                UPDATE estudiantes_cursos
+                SET id_curso = %s
+                WHERE id_estudiante = %s
+            """, (id_curso, id))
+
+            conn.commit()
+            flash('Estudiante actualizado correctamente.', 'success')
+            return redirect(url_for('main.estudiantes'))
+
+        # GET: Traer datos actuales del estudiante y la lista de cursos
+        cursor.execute("""
+            SELECT e.id_estudiante, e.nombre, ec.id_curso
+            FROM estudiantes e
+            LEFT JOIN estudiantes_cursos ec ON e.id_estudiante = ec.id_estudiante
+            WHERE e.id_estudiante = %s
+        """, (id,))
+        estudiante = cursor.fetchone()
+
+        if not estudiante:
+            flash('Estudiante no encontrado.', 'danger')
+            return redirect(url_for('main.estudiantes'))
+
+        cursor.execute("SELECT id_curso, grado FROM cursos ORDER BY grado")
+        cursos = cursor.fetchall()
+
+        return render_template('estudiantes/editar_estudiante.html', estudiante=estudiante, cursos=cursos)
+
+    except Exception as e:
+        conn.rollback()
+        flash(f"Ocurrió un error: {e}", "danger")
+        return redirect(url_for('main.estudiantes'))
+    finally:
+        cursor.close()
+
+
+
+@main.route('/eliminar_estudiante/<int:id>', methods=['GET', 'POST'])
+def eliminar_estudiante(id):
+    conn = get_db()
+    cursor = conn.cursor()
+    try:
+        cursor.execute("DELETE FROM estudiantes WHERE id_estudiante = %s", (id,))
+        conn.commit()
+        flash('Estudiante eliminado exitosamente.', 'success')
+    except Exception as e:
+        flash(f'Error al eliminar estudiante: {e}', 'danger')
+    finally:
+        cursor.close()
+    return redirect(url_for('main.estudiantes'))
+
+
+
+
+
+@main.route('/reporte')
+@admin_required
+def reporte():
+    # 1. Obtener y validar filtros desde la URL
+    fecha_inicio = request.args.get('inicio')
+    fecha_fin = request.args.get('fin')
+    id_curso_filtro = request.args.get('id_curso', type=int)
+    id_profesor_filtro = request.args.get('id_profesor', type=int)
+    id_asignatura_filtro = request.args.get('id_asignatura', type=int)
+
+    page = request.args.get('page', 1, type=int)
+    per_page = 15
+
+    conn = get_db()
+    cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+
+    try:
+        # 2. Obtener datos para los menús desplegables de filtros
+        cursor.execute("SELECT id_curso, grado FROM cursos ORDER BY grado")
+        cursos = cursor.fetchall()
+        cursor.execute("SELECT id_profesor, nombre_completo FROM profesores ORDER BY nombre_completo")
+        profesores = cursor.fetchall()
+        cursor.execute("SELECT id_asignatura, tema FROM asignatura ORDER BY tema")
+        asignaturas = cursor.fetchall()
+
+        # 3. Construir la consulta SQL base para los datos
+        query = """
+            SELECT
+                e.id_estudiante,
+                e.nombre,
+                c.grado,
+                COUNT(a.id_asistencia) FILTER (WHERE a.estado = 'Presente') AS presentes,
+                COUNT(a.id_asistencia) FILTER (WHERE a.estado = 'Ausente') AS ausentes,
+                COUNT(a.id_asistencia) FILTER (WHERE a.estado = 'Tarde') AS tardes,
+                COUNT(a.id_asistencia) FILTER (WHERE a.estado = 'Justificado') AS justificados,
+                COUNT(a.id_asistencia) AS clases_registradas
+            FROM estudiantes e
+            JOIN estudiantes_cursos ec ON e.id_estudiante = ec.id_estudiante
+            JOIN cursos c ON ec.id_curso = c.id_curso
+            LEFT JOIN asistencias a ON e.id_estudiante = a.id_estudiante AND a.id_curso = c.id_curso
+        """
+        
+        # Construir la consulta para contar el total de filas (sin el GROUP BY principal)
+        count_query_base = "SELECT COUNT(DISTINCT e.id_estudiante) FROM estudiantes e JOIN estudiantes_cursos ec ON e.id_estudiante = ec.id_estudiante JOIN cursos c ON ec.id_curso = c.id_curso"
+        count_join = ""
+
+        conditions = []
+        params = []
+
+        if id_curso_filtro:
+            conditions.append("c.id_curso = %s")
+            params.append(id_curso_filtro)
+        
+        # Unimos con horarios para poder filtrar por profesor y asignatura
+        if id_profesor_filtro or id_asignatura_filtro:
+            join_horarios_str = " JOIN horarios h ON a.id_horario = h.id_horario "
+            query += join_horarios_str
+            if id_profesor_filtro:
+                conditions.append("h.id_profesor = %s")
+                params.append(id_profesor_filtro)
+            if id_asignatura_filtro:
+                # Asumiendo que h.asignatura es un id_asignatura (entero)
+                conditions.append("CAST(h.asignatura AS integer) = %s")
+                params.append(id_asignatura_filtro)
+
+        if fecha_inicio:
+            conditions.append("a.fecha >= %s")
+            params.append(fecha_inicio)
+        if fecha_fin:
+            conditions.append("a.fecha <= %s")
+            params.append(fecha_fin)
+
+        # Aplicar condiciones a ambas consultas
+        if conditions:
+            where_clause = " WHERE " + " AND ".join(conditions)
+            query += where_clause
+            # Para el count, necesitamos unir con asistencias si hay filtros de fecha/profesor/asignatura
+            if any(f in where_clause for f in ['a.fecha', 'h.id_profesor', 'h.asignatura']):
+                count_join += " LEFT JOIN asistencias a ON e.id_estudiante = a.id_estudiante AND a.id_curso = c.id_curso"
+            if 'h.' in where_clause:
+                 count_join += " JOIN horarios h ON a.id_horario = h.id_horario"
+            
+            cursor.execute(count_query_base + count_join + where_clause, tuple(params))
+        else:
+            cursor.execute(count_query_base, tuple(params))
+
+        total_items = cursor.fetchone()[0]
+        total_pages = (total_items + per_page - 1) // per_page
+        offset = (page - 1) * per_page
+
+        query += f" GROUP BY e.id_estudiante, e.nombre, c.grado ORDER BY c.grado, e.nombre LIMIT {per_page} OFFSET {offset}"
+        cursor.execute(query, tuple(params))
+
+        resultados_db = cursor.fetchall()
+
+        reporte = []
+        for row in resultados_db:
+            reporte_fila = dict(row)
+            reporte.append(reporte_fila)
+
+    finally:
+        cursor.close()
+
+    return render_template('reportes/reporte.html', reporte=reporte, cursos=cursos, profesores=profesores, asignaturas=asignaturas, page=page, total_pages=total_pages,
+                           filtros_activos={
+                               'inicio': fecha_inicio, 'fin': fecha_fin,
+                               'id_curso': id_curso_filtro, 'id_profesor': id_profesor_filtro,
+                               'id_asignatura': id_asignatura_filtro
+                           })
+
+
+
+
+
+# Recuperar contraseña - solicitar email
+@main.route('/recuperar', methods=['GET', 'POST'])
+def recuperar():
+    if request.method == 'POST':
+        email = request.form.get('correo', '').strip()
+        username = request.form.get('username', '').strip()
+
+        if not email and not username:
+            flash('Debes ingresar el correo o el nombre de usuario.', 'warning')
+            return redirect(url_for('main.recuperar'))
+
+        conn = get_db()
+        cursor = conn.cursor()
+        try:
+            if email and username:
+                cursor.execute("""
+                    SELECT id_usuario, correo, username FROM usuarios
+                    WHERE correo = %s OR username = %s
+                """, (email, username))
+            else:
+                cursor.execute("SELECT id_usuario, correo, username FROM usuarios WHERE correo = %s", (email,))
+
+            user = cursor.fetchone()
+
+            if user:
+                user_id, user_email, user_username = user
+                serializer = URLSafeTimedSerializer(current_app.config['SECRET_KEY'])
+                token = serializer.dumps({'email': user_email, 'username': user_username}, salt=current_app.config['SECURITY_PASSWORD_SALT'])
+
+                cursor.execute("INSERT INTO password_reset_tokens (user_id, token) VALUES (%s, %s)", (user_id, token))
+                conn.commit()
+
+                reset_url = url_for('main.reset_password', token=token, _external=True)
+                send_email(user_email, reset_url)
+
+                flash('Se ha enviado un correo con instrucciones para restablecer tu contraseña.', 'info')
+            else:
+                flash('No se encontró ningún usuario con ese correo o nombre de usuario.', 'warning')
+        finally:
+            cursor.close()
+
+        return redirect(url_for('main.login'))
+
+    return render_template('recuperar/recuperar.html')
+
+
+
+
+
+# Restablecer contraseña con token
+@main.route('/reset_password/<token>', methods=['GET', 'POST'])
+def reset_password(token):
+    serializer = URLSafeTimedSerializer(current_app.config['SECRET_KEY'])
+    
+    conn = get_db()
+    cursor = conn.cursor()
+    
+    # Verificar si el token existe y no fue usado
+    cursor.execute("SELECT id, used FROM password_reset_tokens WHERE token = %s", (token,))
+    token_data = cursor.fetchone()
+    if not token_data:
+        flash('El enlace es inválido o ha expirado.', 'danger')
+        cursor.close()
+        return redirect(url_for('main.recuperar'))
+    
+    token_id, used = token_data
+    
+    if used:
+        flash('Este enlace ya fue utilizado.', 'warning')
+        cursor.close()
+        return redirect(url_for('main.login'))
+
+    try:
+        data = serializer.loads(token, salt=current_app.config['SECURITY_PASSWORD_SALT'], max_age=3600)
+        email = data['email']
+        username = data['username']
+    except Exception:
+        flash('El enlace es inválido o ha expirado.', 'danger')
+        cursor.close()
+        return redirect(url_for('main.recuperar'))
+
+    if request.method == 'POST':
+        password = request.form['password']
+        confirm_password = request.form['confirm_password']
+
+        if password != confirm_password:
+            flash('Las contraseñas no coinciden.', 'warning')
+            return redirect(request.url)
+
+        hashed_password = generate_password_hash(password)
+        cursor.execute("UPDATE usuarios SET password = %s WHERE correo = %s AND username = %s", (hashed_password, email, username))
+        # Marcar token como usado
+        cursor.execute("UPDATE password_reset_tokens SET used = TRUE WHERE id = %s", (token_id,))
+        conn.commit()
+        cursor.close()
+
+        flash('Tu contraseña ha sido actualizada correctamente.', 'success')
+        return redirect(url_for('main.login'))
+
+    cursor.close()
+    return render_template('recuperar/reset_password.html')
+
+from flask import jsonify
+
+@main.route('/buscar_usuario')
+def buscar_usuario():
+    termino = request.args.get('q', '')
+    cursor = get_db().cursor()
+    cursor.execute("SELECT id_usuario, username FROM usuarios WHERE username ILIKE %s LIMIT 10", (f'%{termino}%',))
+    resultados = cursor.fetchall()
+    cursor.close()
+
+    sugerencias = [{'id': r[0], 'text': r[1]} for r in resultados]
+    return jsonify(sugerencias)
+
+@main.route('/verificar', methods=['GET', 'POST'])
+def verificar():
+    if request.method == 'POST':
+        codigo_ingresado = request.form['codigo']
+        datos = session.get('registro_temporal')
+
+        if not datos:
+            flash('No hay datos de registro en proceso.', 'danger')
+            return redirect(url_for('main.registro'))
+
+        if datos['codigo'] != codigo_ingresado:
+            flash('Código incorrecto. Intenta de nuevo.', 'warning')
+            return redirect(url_for('main.verificar'))
+
+        # Guardar el usuario en la base de datos
+        conn = get_db()
+        cursor = conn.cursor()
+        try:
+            cursor.execute("""
+                INSERT INTO usuarios (username, password, correo, nombre_completo, identificacion, id_rol, fecha_registro, estado)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+            """, (
+                datos['username'],
+                datos['password'],
+                datos['correo'],
+                datos['nombre_completo'],
+                datos['identificacion'],
+                datos['id_rol'],
+                datetime.now(),
+                True
+            ))
+            conn.commit()
+            flash('Usuario registrado exitosamente.', 'success')
+            session.pop('registro_temporal', None)
+        except Exception as e:
+            flash(f'Error al registrar usuario: {e}', 'danger')
+        finally:
+            cursor.close()
+
+        return redirect(url_for('main.login'))
+
+    return render_template('auth/verificar.html')
+
+
+
+
+@main.route('/admin_registro', methods=['GET', 'POST'])  # <-- Agrega methods aquí
+def admin_registro():
+    if request.method == 'POST':
+        username = request.form['username']
+        password = request.form['password']
+        correo = request.form['correo']
+        nombre_completo = request.form['nombre_completo']
+        identificacion = request.form['identificacion']
+        id_rol = request.form['id_rol']
+
+        conn = get_db()
+        cursor = conn.cursor()
+        cursor.execute("SELECT 1 FROM usuarios WHERE correo = %s OR identificacion = %s", (correo, identificacion))
+        exists = cursor.fetchone()
+        if exists:
+            flash('El correo o la identificación ya están registrados.', 'warning')
+            cursor.close()
+            return redirect(url_for('main.admin_registro'))
+
+        # Generar código de verificación
+        codigo = random.randint(100000, 999999)
+
+        # Guardar datos temporales en sesión
+        session['registro_temporal'] = {
+            'username': username,
+            'password': generate_password_hash(password),
+            'correo': correo,
+            'nombre_completo': nombre_completo,
+            'identificacion': identificacion,
+            'id_rol': id_rol,
+            'codigo': str(codigo)
+        }
+
+        # Enviar el correo
+        try:
+            if not send_verification_email(correo, codigo):
+                return redirect(url_for('main.admin_registro'))
+        except Exception as e:
+            flash(f'Error al enviar el correo: {e}', 'danger')
+            return redirect(url_for('main.admin_registro'))
+
+        return redirect(url_for('main.verificar'))
+
+    return render_template('auth/admin_registro.html')
+
+@main.route('/usuarios')
+@admin_required
+@admin_required
+def listar_usuarios():
+    conn = get_db()
+    cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+    try:
+        cursor.execute("""
+            SELECT u.id_usuario, u.username, u.nombre_completo, u.correo, r.nombre AS nombre_rol, u.fecha_registro, u.estado
+            FROM usuarios u
+            JOIN roles r ON u.id_rol = r.id_rol
+            ORDER BY u.fecha_registro DESC
+        """)
+        usuarios = cursor.fetchall()
+    except Exception as e:
+        flash(f"Error al cargar los usuarios: {e}", "danger")
+        usuarios = []
+    finally:
+        cursor.close()
+    
+    return render_template('usuarios/usuarios.html', usuarios=usuarios)
+
+@main.route('/usuarios/editar/<int:id>', methods=['GET', 'POST'])
+@login_required
+@admin_required
+def editar_usuario(id):
+    conn = get_db()
+    cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+
+    if request.method == 'POST':
+        username = request.form['username']
+        nombre_completo = request.form['nombre_completo']
+        correo = request.form['correo']
+        id_rol = request.form['id_rol']
+        estado = 'estado' in request.form
+
+        try:
+            cursor.execute("""
+                UPDATE usuarios
+                SET username = %s, nombre_completo = %s, correo = %s, id_rol = %s, estado = %s
+                WHERE id_usuario = %s
+            """, (username, nombre_completo, correo, id_rol, estado, id))
+            conn.commit()
+            flash('Usuario actualizado correctamente.', 'success')
+            return redirect(url_for('main.listar_usuarios'))
+        except Exception as e:
+            conn.rollback()
+            flash(f'Error al actualizar el usuario: {e}', 'danger')
+        finally:
+            cursor.close()
+
+    # GET
+    try:
+        cursor.execute("SELECT * FROM usuarios WHERE id_usuario = %s", (id,))
+        usuario = cursor.fetchone()
+        cursor.execute("SELECT id_rol, nombre AS nombre_rol FROM roles ORDER BY id_rol")
+        roles = cursor.fetchall()
+        if not usuario:
+            flash('Usuario no encontrado.', 'danger')
+            return redirect(url_for('main.listar_usuarios'))
+        return render_template('usuarios/editar_usuario.html', usuario=usuario, roles=roles)
+    finally:
+        cursor.close()
+
+@main.route('/usuarios/eliminar/<int:id>', methods=['POST'])
+@login_required
+@admin_required
+def eliminar_usuario(id):
+    # ¡CUIDADO! Eliminar un usuario puede causar problemas de integridad de datos.
+    # Una mejor práctica es desactivarlo. Esta función es para casos extremos.
+    if id == session.get('user_id'):
+        flash('No puedes eliminar tu propia cuenta.', 'danger')
+        return redirect(url_for('main.listar_usuarios'))
+
+    conn = get_db()
+    cursor = conn.cursor()
+    try:
+        # Primero, eliminar referencias en otras tablas (profesores, estudiantes, etc.)
+        cursor.execute("DELETE FROM profesores WHERE id_usuario = %s", (id,))
+        cursor.execute("DELETE FROM estudiantes WHERE id_usuario = %s", (id,))
+        cursor.execute("DELETE FROM password_reset_tokens WHERE user_id = %s", (id,))
+        
+        # Finalmente, eliminar el usuario
+        cursor.execute("DELETE FROM usuarios WHERE id_usuario = %s", (id,))
+        conn.commit()
+        flash('Usuario eliminado permanentemente.', 'success')
+    except Exception as e:
+        conn.rollback()
+        flash(f'Error al eliminar el usuario: {e}. Es posible que tenga datos asociados.', 'danger')
+    finally:
+        cursor.close()
+    return redirect(url_for('main.listar_usuarios'))
+
+
+# LISTAR ASIGNATURAS
+
+# LISTAR ASIGNATURAS
+@main.route('/asignatura')
+def asignatura():
+    conn = get_db()
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        SELECT 
+            a.id_asignatura,
+            a.tema,
+            c.grado, 
+            STRING_AGG(p.nombre_completo, ', ') AS profesores
+        FROM asignatura a
+        JOIN cursos c ON a.id_curso = c.id_curso
+        LEFT JOIN asignatura_profesores ap ON a.id_asignatura = ap.id_asignatura
+        LEFT JOIN profesores p ON ap.id_profesor = p.id_profesor
+        GROUP BY a.id_asignatura, a.tema, c.grado
+        ORDER BY c.grado, a.tema;
+    """)
+    asignaturas = cursor.fetchall()
+
+    cursor.close()
+
+    return render_template("asignatura/asignatura.html", asignaturas=asignaturas)
+
+
+# REGISTRAR ASIGNATURA
+@main.route('/asignatura/registrar', methods=['GET', 'POST'])
+@login_required
+def registrar_asignatura():
+    conn = get_db()
+    cursor = conn.cursor()
+
+    cursor.execute("SELECT id_profesor, nombre_completo FROM profesores")
+    profesores = cursor.fetchall()
+
+    cursor.execute("SELECT id_curso, grado FROM cursos")
+    cursos = cursor.fetchall()
+
+    if request.method == 'POST':
+        id_profesores = request.form.getlist('id_profesores')
+        id_curso = request.form['id_curso']
+        tema = request.form['tema']
+
+        if not id_profesores or not id_curso or not tema:
+            flash('Debes agregar al menos un profesor.', 'danger')
+            return render_template('asignatura/registrar_asignatura.html',
+                                   profesores=profesores, 
+                                   cursos=cursos,
+                                   tema_previo=tema,
+                                   id_curso_previo=int(id_curso) if id_curso else None
+                                   )
+        else:
+            try:
+                # Insertar la asignatura y obtener su ID
+                cursor.execute("""
+                    INSERT INTO asignatura (id_curso, tema)
+                    VALUES (%s, %s) RETURNING id_asignatura
+                """, (id_curso, tema))
+                id_asignatura = cursor.fetchone()[0]
+
+                # Insertar las relaciones en la tabla asignatura_profesores
+                for id_profesor in id_profesores:
+                    cursor.execute("INSERT INTO asignatura_profesores (id_asignatura, id_profesor) VALUES (%s, %s)", (id_asignatura, id_profesor))
+                
+                conn.commit()
+                flash('Asignatura registrada exitosamente con sus profesores.', 'success')
+                return redirect(url_for('main.asignatura'))
+            except Exception as e:
+                conn.rollback()
+                flash(f'Error al registrar la asignatura: {e}', 'danger')
+
+    cursor.close()
+
+    return render_template(
+        'asignatura/registrar_asignatura.html',
+        profesores=profesores,
+        cursos=cursos,
+        tema_previo=None,
+        id_curso_previo=None
+    )
+
+
+
+# EDITAR ASIGNATURA
+@main.route('/asignatura/editar/<int:id>', methods=['GET', 'POST'])
+@login_required
+def editar_asignatura(id):
+    conn = get_db()
+    cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+
+    if request.method == 'POST':
+        tema = request.form['tema']
+        id_curso = request.form['id_curso']
+        id_profesores_nuevos = request.form.getlist('id_profesores')
+
+        if not id_profesores_nuevos:
+            flash('Una asignatura debe tener al menos un profesor.', 'danger')
+            return redirect(request.url)
+
+        try:
+            # 1. Actualizar datos básicos de la asignatura
+            cursor.execute("""
+                UPDATE asignatura SET tema = %s, id_curso = %s WHERE id_asignatura = %s
+            """, (tema, id_curso, id))
+
+            # 2. Obtener profesores actuales
+            cursor.execute("SELECT id_profesor FROM asignatura_profesores WHERE id_asignatura = %s", (id,))
+            id_profesores_actuales = {row['id_profesor'] for row in cursor.fetchall()}
+
+            # Convertir a set para facilitar la comparación
+            id_profesores_nuevos_set = {int(p_id) for p_id in id_profesores_nuevos}
+
+            # 3. Determinar qué profesores añadir y cuáles quitar
+            profesores_a_anadir = id_profesores_nuevos_set - id_profesores_actuales
+            profesores_a_quitar = id_profesores_actuales - id_profesores_nuevos_set
+
+            # 4. Añadir nuevas relaciones
+            if profesores_a_anadir:
+                args_str = ','.join(cursor.mogrify("(%s,%s)", (id, p_id)).decode('utf-8') for p_id in profesores_a_anadir)
+                cursor.execute("INSERT INTO asignatura_profesores (id_asignatura, id_profesor) VALUES " + args_str)
+
+            # 5. Quitar relaciones antiguas
+            if profesores_a_quitar:
+                cursor.execute("DELETE FROM asignatura_profesores WHERE id_asignatura = %s AND id_profesor = ANY(%s)", (id, list(profesores_a_quitar)))
+
+            conn.commit()
+            flash('Asignatura actualizada correctamente.', 'success')
+            return redirect(url_for('main.asignatura'))
+        except Exception as e:
+            conn.rollback()
+            flash(f'Error al actualizar la asignatura: {e}', 'danger')
+
+    # GET
+    cursor.execute("SELECT * FROM asignatura WHERE id_asignatura = %s", (id,))
+    asignatura = cursor.fetchone()
+
+    if not asignatura:
+        flash('Asignatura no encontrada.', 'danger')
+        return redirect(url_for('main.asignatura'))
+
+    # Obtener profesores ya asociados a esta asignatura
+    cursor.execute("""
+        SELECT p.id_profesor, p.nombre_completo
+        FROM profesores p
+        JOIN asignatura_profesores ap ON p.id_profesor = ap.id_profesor
+        WHERE ap.id_asignatura = %s
+    """, (id,))
+    profesores_asignados = cursor.fetchall()
+
+    cursor.execute("SELECT id_curso, grado FROM cursos ORDER BY grado")
+    cursos = cursor.fetchall()
+
+    cursor.close()
+
+    return render_template('asignatura/editar_asignatura.html',
+                           asignatura=asignatura,
+                           cursos=cursos,
+                           profesores_asignados=profesores_asignados)
+
+
+@main.route('/asignatura/eliminar/<int:id>', methods=['POST'])
+@login_required
+def eliminar_asignatura(id):
+    conn = get_db()
+    cursor = conn.cursor()
+    try:
+        # La eliminación en cascada (ON DELETE CASCADE) se encargará de asignatura_profesores
+        cursor.execute("DELETE FROM asignatura WHERE id_asignatura = %s", (id,))
+        conn.commit()
+        flash('Asignatura eliminada correctamente.', 'success')
+    except Exception as e:
+        conn.rollback()
+        flash(f'Error al eliminar la asignatura: {e}', 'danger')
+    finally:
+        cursor.close()
+
+    return redirect(url_for('main.asignatura'))
+
+
+@main.route('/horario')
+@admin_required
+def horario():
+    conn = get_db()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+    id_profesor_filtro = request.args.get('id_profesor', type=int)
+
+    try:
+        # Obtener profesores para el filtro
+        cur.execute("SELECT id_profesor, nombre_completo FROM profesores ORDER BY nombre_completo")
+        profesores = cur.fetchall()
+
+        # Construir la consulta base
+        query = """
+            SELECT 
+                h.id_horario, 
+                c.grado AS curso,
+                p.nombre_completo AS profesor,
+                h.dia_semana, 
+                h.hora_inicio, 
+                h.hora_fin, 
+                a.tema AS asignatura
+            FROM horarios h
+            JOIN cursos c ON h.id_curso = c.id_curso
+            JOIN profesores p ON h.id_profesor = p.id_profesor
+            JOIN asignatura a ON CAST(h.asignatura AS integer) = a.id_asignatura
+        """
+        params = []
+        if id_profesor_filtro:
+            query += " WHERE h.id_profesor = %s"
+            params.append(id_profesor_filtro)
+        
+        query += " ORDER BY h.hora_inicio, h.dia_semana;"
+
+        cur.execute(query, tuple(params))
+        horarios_db = cur.fetchall()
+
+        # Procesar en una estructura de tabla: {hora: {dia: clase}}
+        horario_tabla = {}
+        dias_semana = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"]
+
+        for item in horarios_db:
+            # Usar el rango horario como clave para la fila
+            rango_horario_str = f"{item['hora_inicio'].strftime('%I:%M %p')} - {item['hora_fin'].strftime('%I:%M %p')}"
+            if rango_horario_str not in horario_tabla:
+                horario_tabla[rango_horario_str] = {dia: None for dia in dias_semana}
+            
+            # Capitalizar día para que coincida con la lista
+            dia_item = item['dia_semana'].capitalize()
+            if dia_item in dias_semana:
+                horario_tabla[rango_horario_str][dia_item] = item
+
+    except Exception as e:
+        flash(f"Error al cargar los horarios: {e}", "danger")
+        horario_tabla, profesores = {}, []
+    finally:
+        cur.close()
+
+    return render_template('horario/horario.html', horario_tabla=horario_tabla, dias_semana=dias_semana,
+                           profesores=profesores, id_profesor_filtro=id_profesor_filtro)
+
+
+
+@main.route('/editar_horario/<int:id>', methods=['GET', 'POST'])
+@login_required
+def editar_horario(id):
+    conn = get_db()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+
+    try:
+        if request.method == 'POST':
+            dia = request.form['dia']
+            hora_inicio = request.form['hora_inicio']
+            hora_fin = request.form['hora_fin']
+            id_profesor = request.form['id_profesor']
+            id_curso = request.form['id_curso']
+            id_asignatura = request.form['id_asignatura']
+
+            cur.execute("""
+                UPDATE horarios 
+                SET id_curso = %s, id_profesor = %s, dia_semana = %s, hora_inicio = %s, hora_fin = %s, asignatura = %s
+                WHERE id_horario = %s
+            """, (id_curso, id_profesor, dia, hora_inicio, hora_fin, id_asignatura, id))
+
+            conn.commit()
+            flash("Horario actualizado con éxito", "success")
+            return redirect(url_for('main.horario'))
+
+        # GET: Obtener datos para el formulario
+        cur.execute("SELECT id_curso, grado FROM cursos ORDER BY grado")
+        cursos = cur.fetchall()
+        cur.execute("SELECT id_profesor, nombre_completo FROM profesores ORDER BY nombre_completo")
+        profesores = cur.fetchall()
+        cur.execute("SELECT id_asignatura, tema FROM asignatura ORDER BY tema")
+        asignaturas = cur.fetchall()
+
+        # Obtener datos del horario actual
+        cur.execute("SELECT * FROM horarios WHERE id_horario = %s", (id,))
+        horario = cur.fetchone()
+
+        if not horario:
+            flash("Horario no encontrado.", "danger")
+            return redirect(url_for('main.horario'))
+        
+        return render_template('horario/editar_horario.html', horario=horario, cursos=cursos, profesores=profesores, asignaturas=asignaturas)
+
+    except Exception as e:
+        conn.rollback()
+        flash(f"Ocurrió un error: {str(e)}", "danger")
+        return redirect(url_for('main.asignatura'))
+    finally:
+        cur.close()
+
+
+@main.route('/eliminar_horario/<int:id>', methods=['POST', 'GET'])
+@login_required
+def eliminar_horario(id):
+    try:
+        conn = get_db()
+        cur = conn.cursor()
+
+        # Eliminar el horario
+        cur.execute("DELETE FROM horarios WHERE id_horario = %s", (id,))
+        conn.commit()
+
+        flash("Horario eliminado con éxito", "success")
+    except Exception as e:
+        flash(f"No se pudo eliminar el horario: {str(e)}", "danger")
+    finally:
+        cur.close()
+
+    return redirect(url_for('main.horario'))
+
+
+
+@main.route('/registrar_horario', methods=['GET', 'POST'])
+@login_required
+def registrar_horario():
+    conn = get_db()
+    cur = conn.cursor()
+
+    if request.method == 'POST':
+        dia = request.form['dia']
+        hora_inicio = request.form['hora_inicio']
+        hora_fin = request.form['hora_fin']
+        id_profesor = request.form['id_profesor']
+        id_curso = request.form['id_curso']
+        asignatura = request.form['id_asignatura']
+
+        try:
+            cur.execute("""
+                INSERT INTO horarios (id_curso, id_profesor, dia_semana, hora_inicio, hora_fin, asignatura)
+                VALUES (%s, %s, %s, %s, %s, %s)
+            """, (id_curso, id_profesor, dia, hora_inicio, hora_fin, asignatura))
+
+            conn.commit()
+            flash("Horario registrado con éxito", "success")
+            return redirect(url_for('main.horario'))
+        except Exception as e:
+            conn.rollback()  # 👈 Esto limpia la transacción fallida
+            flash(f"Error al registrar horario: {str(e)}", "danger")
+
+    # Consultas separadas después del rollback
+    try:
+        cur.execute("SELECT id_curso, grado FROM cursos")
+        cursos = cur.fetchall()
+
+        cur.execute("SELECT id_profesor, nombre_completo FROM profesores ORDER BY nombre_completo")
+        profesores = cur.fetchall()
+
+        cur.execute("SELECT id_asignatura, tema FROM asignatura")
+        asignaturas = cur.fetchall()
+    except Exception as e:
+        flash(f"Error al obtener datos: {str(e)}", "danger")
+        cursos, profesores, asignaturas = [], [], []
+
+    cur.close()
+
+    return render_template('horario/registrar_horario.html',
+                           cursos=cursos, profesores=profesores, asignaturas=asignaturas)
+
+
+
+@main.route('/editar_perfil', methods=['GET', 'POST'])
+@login_required
+def editar_perfil():
+    if 'user_id' not in session:
+        flash('Debes iniciar sesión para acceder a esta página.', 'warning')
+        return redirect(url_for('main.login'))
+
+    user_id = session['user_id']
+
+    conn = get_db()
+    cursor = conn.cursor()
+
+    if request.method == 'POST':
+        nuevo_username = request.form['username']
+        nueva_password = request.form['password']
+        confirmar_password = request.form['confirm_password']
+
+        if nueva_password != confirmar_password:
+            flash('Las contraseñas no coinciden.', 'warning')
+            return redirect(url_for('main.editar_perfil'))
+
+        hashed_password = generate_password_hash(nueva_password)
+
+        # Actualizar datos
+        cursor.execute("""
+            UPDATE usuarios
+            SET username = %s, password = %s
+            WHERE id_usuario = %s
+        """, (nuevo_username, hashed_password, user_id))
+        conn.commit()
+
+        flash('Tu perfil ha sido actualizado correctamente.', 'success')
+        cursor.close()
+        return redirect(url_for('main.admin_dashboard'))  # Ajusta según tu app
+
+    # Método GET: cargar datos actuales del usuario
+    cursor.execute("SELECT username FROM usuarios WHERE id_usuario = %s", (user_id,))
+    user_data = cursor.fetchone()
+    cursor.close()
+
+    if user_data:
+        username_actual = user_data[0]
+    else:
+        flash('Usuario no encontrado.', 'danger')
+        return redirect(url_for('main.login'))
+
+    return render_template('recuperar/editar_perfil.html', username=username_actual)
+
+
+
+@main.route("/asistencias")
+@admin_profesor_required
+def asistencias():
+    # 1. Obtener filtros de la URL
+    fecha_str = request.args.get('fecha', datetime.now().strftime('%Y-%m-%d'))
+    id_curso_filtro = request.args.get('id_curso', type=int)
+    page = request.args.get('page', 1, type=int)
+    per_page = 5 # Número de clases por página
+    offset = (page - 1) * per_page
+
+    try:
+        fecha_obj = datetime.strptime(fecha_str, '%Y-%m-%d')
+    except (ValueError, TypeError):
+        fecha_obj = datetime.now()
+        fecha_str = fecha_obj.strftime('%Y-%m-%d')
+
+    dias_semana = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]
+    dia_semana_str = dias_semana[fecha_obj.weekday()]
+
+    try:
+        conn = get_db()
+        cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+
+        # 2. Obtener todos los cursos para el menú de filtro
+        cur.execute("SELECT id_curso, grado FROM cursos ORDER BY grado")
+        cursos_para_filtro = cur.fetchall()
+
+        total_pages = 1
+        vista_horarios = []
+        # Solo proceder si se ha seleccionado un curso
+        if id_curso_filtro:
+            # 3. Contar el total de horarios para la paginación
+            count_query = """
+                SELECT COUNT(DISTINCT h.id_horario)
+                FROM horarios h
+                LEFT JOIN asistencias a ON h.id_horario = a.id_horario
+                WHERE h.id_curso = %s AND (LOWER(h.dia_semana) = LOWER(%s) OR a.fecha = %s)
+            """
+            cur.execute(count_query, (id_curso_filtro, dia_semana_str, fecha_obj.date()))
+            total_items = cur.fetchone()[0]
+            total_pages = (total_items + per_page - 1) // per_page
+
+            # 4. Obtener los horarios para la página actual
+            cur.execute("""
+                SELECT DISTINCT h.id_horario, h.hora_inicio, h.hora_fin, 
+                                p.nombre_completo AS profesor, s.tema AS asignatura
+                FROM horarios h
+                JOIN profesores p ON h.id_profesor = p.id_profesor
+                LEFT JOIN asignatura s ON CAST(h.asignatura AS integer) = s.id_asignatura
+                LEFT JOIN asistencias a ON h.id_horario = a.id_horario
+                WHERE
+                    h.id_curso = %s AND
+                    (LOWER(h.dia_semana) = LOWER(%s) OR a.fecha = %s)
+                ORDER BY h.hora_inicio
+                LIMIT %s OFFSET %s;
+            """, (id_curso_filtro, dia_semana_str, fecha_obj.date(), per_page, offset))
+            horarios_del_dia = cur.fetchall()
+
+            # 5. Para cada horario de la página actual, obtener los estudiantes
+            for horario in horarios_del_dia:
+                cur.execute("""
+                    SELECT 
+                        e.id_estudiante,
+                        e.nombre,
+                        a.estado, a.id_asistencia
+                    FROM estudiantes e
+                    JOIN estudiantes_cursos ec ON e.id_estudiante = ec.id_estudiante
+                    LEFT JOIN asistencias a ON e.id_estudiante = a.id_estudiante
+                        AND a.id_horario = %s AND a.fecha = %s
+                    WHERE ec.id_curso = %s
+                    ORDER BY e.nombre;
+                """, (horario['id_horario'], fecha_obj.date(), id_curso_filtro))
+                
+                estudiantes_con_asistencia = cur.fetchall()
+                
+                vista_horarios.append({
+                    'horario': horario,
+                    'estudiantes': estudiantes_con_asistencia
+                })
+    except Exception as e:
+        flash(f"Error al cargar las asistencias: {e}", "danger")
+        vista_horarios, cursos_para_filtro = [], []
+    finally:
+        pass # La conexión se cierra automáticamente con teardown_app_request
+
+    return render_template("asistencias/asistencia.html",
+                           vista_horarios=vista_horarios,
+                           cursos_filtro=cursos_para_filtro,
+                           fecha_seleccionada=fecha_str,
+                           id_curso_seleccionado=id_curso_filtro,
+                           page=page,
+                           total_pages=total_pages)
+
+
+@main.route("/asistencias/registrar", methods=["GET", "POST"])
+@login_required
+def registrar_asistencia():
+    conn = get_db()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+
+    if request.method == "POST":
+        id_horario = request.form.get("id_horario")
+        id_curso = request.form.get("id_curso")
+        id_profesor = request.form.get("id_profesor_real")
+        fecha = request.form.get("fecha")
+        estudiantes = request.form.getlist("estudiantes[]")
+
+        if not id_profesor:
+            flash("Debe seleccionar un profesor válido.", "danger")
+            return redirect(url_for("main.registrar_asistencia"))
+
+        cur.execute("""
+            SELECT hora_inicio, hora_fin, dia_semana
+            FROM horarios
+            WHERE id_horario = %s AND id_curso = %s
+        """, (id_horario, id_curso))
+        horario = cur.fetchone()
+
+        if not horario:
+            flash("El horario seleccionado no es válido.", "danger")
+            return redirect(url_for("main.registrar_asistencia"))
+
+        hora_inicio, hora_fin, dia_semana = horario
+
+        # --- INICIO: Validación de horario y día para profesores ---
+        # Si el usuario es un profesor (rol 2), se aplican validaciones de tiempo y día.
+        if session.get('user_role') == 2:
+            fecha_obj = datetime.strptime(fecha, '%Y-%m-%d').date()
+            dias_es = ["lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo"]
+            dia_semana_num_fecha = fecha_obj.weekday()
+
+            # 1. Validar que el día de la semana coincida
+            if dia_semana.lower() != dias_es[dia_semana_num_fecha]:
+                flash(f"No puedes registrar asistencia para una clase de '{dia_semana}' en un {dias_es[dia_semana_num_fecha].capitalize()}.", "danger")
+                return redirect(request.referrer or url_for("main.registrar_asistencia"))
+
+            # 2. Validar que la hora actual esté dentro del rango del horario, SOLO si la fecha es hoy.
+            if fecha_obj == datetime.now().date():
+                hora_actual = datetime.now().time()
+                if not (hora_inicio <= hora_actual <= hora_fin):
+                    flash("Como profesor, solo puedes registrar asistencia para la fecha de hoy durante el horario de la clase.", "danger")
+                    return redirect(request.referrer or url_for("main.registrar_asistencia"))
+
+        try:
+            for id_estudiante in estudiantes:
+                estado = request.form.get(f"estado_{id_estudiante}")
+                observaciones = request.form.get(f"observaciones_{id_estudiante}", "")
+                archivo = request.files.get(f"excusa_{id_estudiante}")
+                excusa_data = archivo.read() if archivo and archivo.filename else None
+
+                # Verificar duplicado
+                cur.execute("""
+                    SELECT 1 FROM asistencias
+                    WHERE id_horario = %s AND id_curso = %s AND id_estudiante = %s AND fecha = %s
+                """, (id_horario, id_curso, id_estudiante, fecha))
+
+                if cur.fetchone():
+                    flash(f"El estudiante {id_estudiante} ya tiene asistencia registrada en este horario y fecha.", "warning")
+                    continue
+
+                # Insertar asistencia
+                cur.execute("""
+                    INSERT INTO asistencias (id_horario, fecha, id_estudiante, estado, observaciones, id_profesor, excusa_archivo, id_curso)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                """, (id_horario, fecha, id_estudiante, estado, observaciones, id_profesor, excusa_data, id_curso))
+
+            conn.commit()
+            flash("Asistencias registradas correctamente", "success")
+        except Exception as e:
+            conn.rollback()
+            flash(f"Error al registrar asistencias: {str(e)}", "danger")
+        finally:
+            cur.close()
+
+        return redirect(url_for("main.asistencias"))
+
+    # GET
+    profesor_autocompletado = None
+    # Si el usuario es un profesor, obtenemos sus datos para autocompletar
+    if session.get('user_role') == 2:
+        user_id = session.get('user_id')
+        try:
+            cur.execute(""" 
+                SELECT id_profesor, nombre_completo
+                FROM profesores WHERE id_usuario = %s
+            """, (user_id,))
+            profesor_autocompletado = cur.fetchone()
+        except Exception as e:
+            flash(f"Error al obtener datos del profesor: {e}", "danger")
+
+    cur.close()
+    return render_template("asistencias/registrar_asistencias.html", profesor_autocompletado=profesor_autocompletado)
+
+
+
+@main.route("/get_horarios_cursos/<int:id_profesor>")
+@login_required
+def get_horarios_cursos(id_profesor):
+    cur = get_db().cursor(cursor_factory=psycopg2.extras.DictCursor)
+    try:
+        cur.execute("""
+            SELECT 
+                h.id_horario, h.dia_semana, h.hora_inicio, h.hora_fin,
+                c.id_curso, c.grado,
+                COALESCE(a.tema, 'Asignatura no especificada') AS asignatura
+            FROM horarios h
+            JOIN cursos c ON h.id_curso = c.id_curso
+            LEFT JOIN asignatura a ON CAST(h.asignatura AS integer) = a.id_asignatura
+            WHERE h.id_profesor = %s
+            ORDER BY h.hora_inicio, h.dia_semana
+        """, (id_profesor,))
+        
+        # Convertir time objects a string para que sean serializables en JSON
+        data = []
+        for row in cur.fetchall():
+            row_dict = dict(row)
+            row_dict['hora_inicio'] = row_dict['hora_inicio'].strftime('%I:%M %p')
+            row_dict['hora_fin'] = row_dict['hora_fin'].strftime('%I:%M %p')
+            data.append(row_dict)
+
+        return jsonify(data)
+    finally:
+        cur.close()
+
+
+@main.route("/asistencias/estudiantes/<int:id_curso>")
+@login_required
+def obtener_estudiantes(id_curso):
+    cur = get_db().cursor(cursor_factory=psycopg2.extras.DictCursor)
+    try:
+        cur.execute("""
+            SELECT e.id_estudiante, e.nombre
+            FROM estudiantes e
+            JOIN estudiantes_cursos ec ON e.id_estudiante = ec.id_estudiante
+            WHERE ec.id_curso = %s
+            ORDER BY e.nombre
+        """, (id_curso,))
+        estudiantes = cur.fetchall()
+        if not estudiantes:
+            return jsonify({"error": "No hay estudiantes en este curso"}), 404
+        
+        # Convertir las filas del cursor (que son como diccionarios) a una lista de diccionarios reales
+        estudiantes_list = [dict(row) for row in estudiantes]
+        return jsonify(estudiantes_list)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    finally:
+        cur.close()
+
+
+
+@main.route('/editar_asistencia/<int:id>', methods=['GET', 'POST'])
+@login_required
+def editar_asistencia(id):
+    conn = get_db()
+    cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+
+    # Guardar los parámetros de la URL para la redirección
+    fecha_filtro = request.args.get('fecha')
+    id_curso_filtro = request.args.get('id_curso')
+
+    cursor.execute("SELECT * FROM asistencias WHERE id_asistencia = %s", (id,))
+    asistencia = cursor.fetchone()
+
+    if not asistencia:
+        flash('Asistencia no encontrada.', 'danger')
+        return redirect(url_for('main.asistencias'))
+
+    if request.method == 'POST':
+        try:
+            # --- INICIO: Validación de horario para profesores ---
+            # Si el usuario es un profesor (rol 2), se verifica que esté dentro del horario de la clase.
+            if session.get('user_role') == 2:
+                cursor.execute("""
+                    SELECT h.hora_inicio, h.hora_fin
+                    FROM asistencias a
+                    JOIN horarios h ON a.id_horario = h.id_horario
+                    WHERE a.id_asistencia = %s
+                """, (id,))
+                horario = cursor.fetchone()
+                if horario:
+                    hora_actual = datetime.now().time()
+                    if not (horario['hora_inicio'] <= hora_actual <= horario['hora_fin']):
+                        flash("Como profesor, solo puedes editar la asistencia durante el horario de la clase.", "danger")
+                        return redirect(url_for('main.asistencias', fecha=fecha_filtro, id_curso=id_curso_filtro))
+            # --- FIN: Validación de horario para profesores ---
+            estado = request.form['estado']
+            observaciones = request.form['observaciones']
+            cursor.execute("""
+                UPDATE asistencias
+                SET estado = %s, observaciones = %s
+                WHERE id_asistencia = %s
+            """, (estado, observaciones, id))
+            conn.commit()
+            flash('Asistencia actualizada correctamente.', 'success')
+        except Exception as e:
+            conn.rollback()
+            flash(f'Error al actualizar la asistencia: {e}', 'danger')
+        finally:
+            cursor.close()
+
+        return redirect(url_for('main.asistencias', fecha=fecha_filtro, id_curso=id_curso_filtro))
+
+    cursor.close()
+    return render_template('asistencias/editar_asistencia.html', asistencia=asistencia, fecha_filtro=fecha_filtro, id_curso_filtro=id_curso_filtro)
+
+@main.route('/buscar_profesores', methods=['GET'])
+@login_required
+def buscar_profesores():
+    q = request.args.get('q', '').strip()
+    print(f"Buscar profesores con query: {q}")
+    if len(q) < 2:
+        print("Query muy corta")
+        return jsonify([])
+
+    try:
+        cursor = get_db().cursor()
+        sql = """ 
+            SELECT id_profesor, nombre_completo, documento, especialidad, id_usuario
+            FROM profesores
+            WHERE nombre_completo ILIKE %s OR documento ILIKE %s
+            LIMIT 10;
+        """
+        like_q = f'%{q}%'
+        cursor.execute(sql, (like_q, like_q))
+        profesores = cursor.fetchall()
+        print(f"Profesores encontrados: {len(profesores)}")
+    except Exception as e:
+        print(f"Error en buscar_profesores: {e}")
+        return jsonify([]), 500
+    finally:
+        cursor.close()
+
+    results = []
+    for p in profesores:
+        results.append({
+            'id': p[0],
+            'label': f"{p[1]} - {p[2]}",
+            'nombre_completo': p[1],
+            'identificacion': p[2],
+            'especialidad': p[3],
+        })
+
+    return jsonify(results)
+
+
+@main.route('/eliminar_asistencia_individual/<int:id>', methods=['POST'])
+@login_required
+def eliminar_asistencia_individual(id):
+    fecha_filtro = request.form.get('fecha')
+    id_curso_filtro = request.form.get('id_curso')
+    try:
+        conn = get_db()
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM asistencias WHERE id_asistencia = %s", (id,))
+        conn.commit()
+        flash('Registro de asistencia eliminado correctamente.', 'success')
+    except Exception as e:
+        conn.rollback()
+        flash(f'Error al eliminar el registro: {e}', 'danger')
+    finally:
+        if 'conn' in locals() and conn is not None:
+            cursor.close()
+    
+    return redirect(url_for('main.asistencias', fecha=fecha_filtro, id_curso=id_curso_filtro))
+
+
+@main.route('/eliminar_asistencia_horario', methods=['POST', 'GET'])
+@login_required
+def eliminar_asistencia_horario():
+    id_horario = request.form.get('id_horario', type=int)
+    id_curso = request.form.get('id_curso', type=int)
+    fecha = request.form.get('fecha', type=str)
+
+    if not all([id_horario, id_curso, fecha]):
+        flash('Faltan datos para eliminar las asistencias.', 'danger')
+        return redirect(request.referrer or url_for('main.asistencias'))
+
+    try:
+        conn = get_db()
+        cursor = conn.cursor()
+        cursor.execute("""
+            DELETE FROM asistencias 
+            WHERE id_horario = %s AND id_curso = %s AND fecha = %s
+        """, (id_horario, id_curso, fecha))
+        
+        deleted_count = cursor.rowcount
+        conn.commit()
+        flash(f'Se eliminaron {deleted_count} registros de asistencia para esta clase.', 'success')
+    except Exception as e:
+        conn.rollback()
+        flash(f'Error al eliminar las asistencias: {e}', 'danger')
+    finally:
+        if 'conn' in locals() and conn is not None:
+            cursor.close()
+
+    return redirect(url_for('main.asistencias', fecha=fecha, id_curso=id_curso))
+
+
+@main.route('/mi_asistencia')
+@login_required
+@student_required
+def mi_asistencia():
+    # 1. Obtener filtros desde la URL
+    fecha_inicio = request.args.get('inicio')
+    fecha_fin = request.args.get('fin')
+    id_asignatura_filtro = request.args.get('id_asignatura', type=int)
+    id_profesor_filtro = request.args.get('id_profesor', type=int)
+    estado_filtro = request.args.get('estado')
+
+    user_id = session.get('user_id')
+    conn = get_db()
+    cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+    
+    asistencias, asignaturas, profesores = [], [], []
+
+    try:
+        # Obtener el id_estudiante a partir del id_usuario
+        cursor.execute("SELECT id_estudiante FROM estudiantes WHERE id_usuario = %s", (user_id,))
+        estudiante = cursor.fetchone() 
+        if not estudiante:
+            flash('No se encontró el perfil de estudiante asociado a tu cuenta.', 'warning')
+            return redirect(url_for('main.index'))
+        
+        id_estudiante = estudiante['id_estudiante']
+
+        # Obtener registros de asistencia
+        query = """
+            SELECT 
+                a.fecha,
+                a.estado,
+                a.observaciones,
+                s.tema AS asignatura,
+                p.nombre_completo AS profesor,
+                h.hora_inicio, 
+                h.hora_fin 
+            FROM asistencias a
+            JOIN horarios h ON a.id_horario = h.id_horario
+            JOIN asignatura s ON CAST(h.asignatura AS integer) = s.id_asignatura
+            JOIN profesores p ON h.id_profesor = p.id_profesor
+        """
+        
+        conditions = ["a.id_estudiante = %s"]
+        params = [id_estudiante]
+
+        if fecha_inicio:
+            conditions.append("a.fecha >= %s")
+            params.append(fecha_inicio)
+        if fecha_fin:
+            conditions.append("a.fecha <= %s")
+            params.append(fecha_fin)
+        if id_asignatura_filtro:
+            conditions.append("s.id_asignatura = %s")
+            params.append(id_asignatura_filtro)
+        if id_profesor_filtro:
+            conditions.append("p.id_profesor = %s")
+            params.append(id_profesor_filtro)
+        if estado_filtro:
+            conditions.append("a.estado = %s")
+            params.append(estado_filtro)
+
+        if conditions:
+            query += " WHERE " + " AND ".join(conditions)
+
+        query += " ORDER BY a.fecha DESC, h.hora_inicio DESC"
+
+        cursor.execute(query, tuple(params))
+        asistencias = cursor.fetchall()
+
+        # Obtener datos para los filtros
+        cursor.execute("SELECT DISTINCT s.id_asignatura, s.tema FROM asignatura s JOIN horarios h ON s.id_asignatura = CAST(h.asignatura AS integer) JOIN asistencias a ON h.id_horario = a.id_horario WHERE a.id_estudiante = %s ORDER BY s.tema", (id_estudiante,))
+        asignaturas = cursor.fetchall()
+        cursor.execute("SELECT DISTINCT p.id_profesor, p.nombre_completo FROM profesores p JOIN horarios h ON p.id_profesor = h.id_profesor JOIN asistencias a ON h.id_horario = a.id_horario WHERE a.id_estudiante = %s ORDER BY p.nombre_completo", (id_estudiante,))
+        profesores = cursor.fetchall()
+
+    except Exception as e:
+        flash(f'Error al cargar tus asistencias: {e}', 'danger')
+        asistencias = []
+    finally:
+        cursor.close()
+    
+    filtros_activos = {
+        'inicio': fecha_inicio, 'fin': fecha_fin, 'id_asignatura': id_asignatura_filtro,
+        'id_profesor': id_profesor_filtro, 'estado': estado_filtro
+    }
+
+    return render_template('estudiantes/mi_asistencia.html', asistencias=asistencias, asignaturas=asignaturas, profesores=profesores, filtros_activos=filtros_activos)
+
+
+@main.route('/mi_reporte')
+@login_required
+@student_required
+def mi_reporte():
+    user_id = session.get('user_id')
+    conn = get_db()
+    cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+    
+    try:
+        cursor.execute("SELECT id_estudiante, nombre FROM estudiantes WHERE id_usuario = %s", (user_id,))
+        estudiante = cursor.fetchone()
+        if not estudiante:
+            flash('No se encontró el perfil de estudiante asociado a tu cuenta.', 'warning')
+            return redirect(url_for('main.index'))
+
+        cursor.execute("""
+            SELECT
+                estado,
+                COUNT(id_asistencia) as total
+            FROM asistencias
+            WHERE id_estudiante = %s
+            GROUP BY estado
+        """, (estudiante['id_estudiante'],))
+        reporte_data = cursor.fetchall()
+        reporte = {row['estado']: row['total'] for row in reporte_data}
+
+        # Calcular porcentajes
+        total_registros = sum(reporte.values())
+        porcentajes = {
+            'presente': 0,
+            'ausente': 0,
+            'tarde': 0,
+            'justificado': 0
+        }
+        if total_registros > 0:
+            porcentajes['presente'] = (reporte.get('Presente', 0) / total_registros) * 100
+            porcentajes['ausente'] = (reporte.get('Ausente', 0) / total_registros) * 100
+            porcentajes['tarde'] = (reporte.get('Tarde', 0) / total_registros) * 100
+            porcentajes['justificado'] = (reporte.get('Justificado', 0) / total_registros) * 100
+
+    finally:
+        cursor.close()
+
+    return render_template('estudiantes/mi_reporte.html', reporte=reporte, estudiante=estudiante, porcentajes=porcentajes)

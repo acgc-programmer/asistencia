@@ -1,0 +1,529 @@
+{% extends "navbar.html" %}
+{% block title %}Horario Semanal{% endblock %}
+
+{% block head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/tablas.css') }}" />
+<script src="https://kit.fontawesome.com/a2d04d6c0b.js" crossorigin="anonymous"></script>
+<style>
+    .horario-container {
+        max-width: 1400px;
+        padding: 1rem;
+    }
+
+    .header-horario {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 2rem;
+    }
+
+    .panel-control {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: space-between;
+        align-items: center;
+        gap: 1.5rem;
+        background-color: #f8f9fa;
+        padding: 1rem;
+        border-radius: 8px;
+        margin-bottom: 2rem;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.07);
+    }
+
+    .panel-control .filtro-grupo {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+    }
+
+    .panel-control .filtro-grupo label {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-weight: 600;
+        color: #333;
+    }
+
+    .panel-control select {
+        padding: 0.6rem 1rem;
+        border: 1px solid #ccc;
+        border-radius: 6px;
+        font-size: 0.9rem;
+        background-color: #f9f9f9;
+        transition: all 0.2s ease;
+    }
+
+    .panel-control select:focus {
+        outline: none;
+        border-color: var(--primary-color);
+        box-shadow: 0 0 0 3px rgba(30, 58, 138, 0.15);
+    }
+
+    .panel-control .acciones-grupo {
+        display: flex;
+        gap: 0.75rem;
+    }
+
+    .horario-table-container {
+        overflow-x: auto;
+        background-color: #fff;
+        border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    }
+
+    .horario-table {
+        width: 100%;
+        border-collapse: collapse;
+        min-width: 1000px;
+    }
+
+    .horario-table th,
+    .horario-table td {
+        border-bottom: 1px solid #e0e0e0;
+        padding: 0.75rem;
+        text-align: center;
+        vertical-align: top;
+        transition: background-color 0.2s ease;
+    }
+
+    .horario-table thead th {
+        background-color: var(--primary-color);
+        color: var(--text-light);
+        font-weight: 600;
+        position: sticky;
+        top: 0;
+        z-index: 10;
+    }
+
+    .horario-table tr td:first-child,
+    .horario-table tr th:first-child {
+        border-left: 1px solid #e0e0e0;
+    }
+
+    .horario-table tbody tr:hover td {
+        background-color: #fcfcfd;
+    }
+
+    .horario-table .hora-cell {
+        background-color: #f8f9fa;
+        font-weight: 600;
+        min-width: 140px;
+    }
+
+    .clase-card {
+        background-color: #fff;
+        border: 1px solid #e0e0e0;
+        border-radius: 4px;
+        text-align: left;
+        font-size: 0.85rem;
+        min-height: 100px;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .clase-card .asignatura {
+        font-weight: bold;
+        color: var(--primary-color-dark);
+        background-color: #e9f5ff;
+        padding: 0.5rem 0.75rem;
+        border-bottom: 1px solid #cce7ff;
+    }
+
+    .clase-card:hover {
+        transform: scale(1.02);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    }
+
+    .clase-card .clase-info {
+        padding: 0.75rem;
+        flex-grow: 1;
+    }
+
+    .clase-card .profesor,
+    .clase-card .curso {
+        color: #333;
+        margin-bottom: 0.5rem;
+    }
+
+    .clase-acciones a {
+        color: #007bff;
+        text-decoration: none;
+        margin-left: 0.5rem;
+        font-size: 0.9rem;
+    }
+
+    .clase-acciones a:hover {
+        text-decoration: underline;
+    }
+
+    .clase-acciones .btn-action-delete {
+        color: #dc3545;
+    }
+
+    /* --- ESTILOS PARA LA VENTANA MODAL --- */
+    .modal-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.6);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 2000;
+        opacity: 0;
+        visibility: hidden;
+        transition: opacity 0.3s ease, visibility 0.3s ease;
+    }
+
+    .modal-overlay.active {
+        opacity: 1;
+        visibility: visible;
+    }
+
+    .modal-content {
+        background: #fff;
+        padding: 2.5rem;
+        border-radius: 8px;
+        width: 90%;
+        max-width: 500px;
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+        transform: translateY(-20px);
+        transition: transform 0.3s ease;
+    }
+
+    .modal-overlay.active .modal-content {
+        transform: translateY(0);
+    }
+
+    .modal-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        border-bottom: 1px solid #eee;
+        padding-bottom: 1rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .modal-header h3 {
+        margin: 0;
+        font-size: 1.5rem;
+        color: var(--primary-color);
+    }
+
+    .modal-close {
+        font-size: 1.8rem;
+        font-weight: bold;
+        color: #aaa;
+        cursor: pointer;
+        background: none;
+        border: none;
+    }
+
+    .modal-body p {
+        margin: 0.5rem 0;
+        font-size: 1.1rem;
+    }
+
+    .modal-body p strong {
+        color: #333;
+    }
+
+    .modal-actions {
+        margin-top: 2rem;
+        display: flex;
+        justify-content: flex-end;
+        gap: 1rem;
+    }
+
+    /* Colores para las tarjetas de asignatura */
+    .clase-card.color-1 .asignatura {
+        background-color: #e0f7fa;
+        border-left: 4px solid #00bcd4;
+        color: #006064;
+    }
+
+    /* Cyan */
+    .clase-card.color-2 .asignatura {
+        background-color: #e8f5e9;
+        border-left: 4px solid #4caf50;
+        color: #1b5e20;
+    }
+
+    .clase-card.color-3 .asignatura {
+        background-color: #fff3e0;
+        border-left: 4px solid #ff9800;
+        color: #e65100;
+    }
+
+    .clase-card.color-4 .asignatura {
+        background-color: #fce4ec;
+        border-left: 4px solid #e91e63;
+        color: #880e4f;
+    }
+
+    .clase-card.color-5 .asignatura {
+        background-color: #ede7f6;
+        border-left: 4px solid #673ab7;
+        color: #311b92;
+    }
+
+    .clase-card.color-6 .asignatura {
+        background-color: #e3f2fd;
+        border-left: 4px solid #2196f3;
+        color: #0d47a1;
+    }
+
+    .clase-card.color-7 .asignatura {
+        background-color: #f1f8e9;
+        border-left: 4px solid #8bc34a;
+        color: #33691e;
+    }
+
+    .clase-card.color-8 .asignatura {
+        background-color: #fffde7;
+        border-left: 4px solid #ffeb3b;
+        color: #f57f17;
+    }
+
+    .clase-card.color-9 .asignatura {
+        background-color: #fbe9e7;
+        border-left: 4px solid #ff5722;
+        color: #bf360c;
+    }
+
+    .clase-card.color-0 .asignatura {
+        background-color: #eceff1;
+        border-left: 4px solid #607d8b;
+        color: #263238;
+    }
+
+    /* Para el caso de que no haya datos */
+    .no-data-container {
+        text-align: center;
+        padding: 4rem 2rem;
+        background-color: #fff;
+        border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    }
+
+    .no-data-container i {
+        font-size: 3rem;
+        color: #ced4da;
+        margin-bottom: 1rem;
+    }
+
+    .no-data-container p {
+        font-size: 1.1rem;
+        color: #6c757d;
+        font-weight: 500;
+    }
+
+    /* --- ESTILOS GENERALES PARA BOTONES --- */
+    .btn,
+    .btn-primary,
+    .btn-danger,
+    .btn-outline-secondary {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.6rem 1.2rem;
+        border-radius: 6px;
+        font-weight: 600;
+        text-decoration: none;
+        cursor: pointer;
+        border: 1px solid transparent;
+        transition: all 0.2s ease;
+        font-size: 0.9rem;
+    }
+
+    .btn:hover,
+    .btn-primary:hover,
+    .btn-danger:hover,
+    .btn-outline-secondary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    }
+
+    /* Botón Primario */
+    .btn-primary {
+        background-color: var(--primary-color);
+        color: var(--text-light);
+        border-color: var(--primary-color);
+    }
+
+    .btn-primary:hover {
+        border-color: var(--primary-color-dark);
+    }
+
+    /* Botón de Peligro */
+    .btn-danger {
+        background-color: #dc3545;
+        color: white;
+        border-color: #dc3545;
+    }
+
+    .btn-danger:hover {
+        background-color: #c82333;
+        border-color: #bd2130;
+    }
+
+    /* Botón Secundario (Outline) */
+    .btn-outline-secondary {
+        color: #6c757d;
+        background-color: transparent;
+        border-color: #6c757d;
+    }
+
+    .btn-outline-secondary:hover {
+        color: #fff;
+        background-color: #6c757d;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="title-container">
+    <h2 class="titulo">Horario Semanal</h2>
+    <a href="{{ url_for('main.registrar_horario') }}" class="nueva"><i class="fas fa-plus"></i> Registrar
+        Horario</a>
+</div>
+<div class="horario-container">
+
+
+    <div class="panel-control">
+        <form method="get" id="filtro-form" class="filtro-grupo">
+            <label for="id_profesor"><i class="fas fa-filter"></i> Filtrar por Profesor:</label>
+            <select name="id_profesor" id="id_profesor">
+                <option value="">Todos los profesores</option>
+                {% for prof in profesores %}
+                <option value="{{ prof.id_profesor }}" {% if prof.id_profesor==id_profesor_filtro %}selected{% endif %}>
+                    {{ prof.nombre_completo }}
+                </option>
+                {% endfor %}
+            </select>
+        </form>
+        <div class="acciones-grupo">
+            <a href="{{ url_for('main.horario') }}" class="nueva">Limpiar Filtro</a>
+        </div>
+    </div>
+
+    {% if horario_tabla %}
+    <div class="horario-table-container">
+        <table class="horario-table">
+            <thead>
+                <tr>
+                    <th>Hora</th>
+                    {% for dia in dias_semana %}
+                    <th>{{ dia }}</th>
+                    {% endfor %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for hora, dias in horario_tabla|dictsort %}
+                <tr>
+                    <td class="hora-cell">{{ hora }}</td>
+                    {% for dia in dias_semana %}
+                    <td>
+                        {% set clase = dias[dia] %}
+                        {% if clase %}
+                        <div class="clase-card color-{{ clase.asignatura|hash|abs % 10 }}" style="cursor: pointer;"
+                            data-id="{{ clase.id_horario }}" data-asignatura="{{ clase.asignatura }}"
+                            data-curso="{{ clase.curso }}" data-profesor="{{ clase.profesor }}" data-hora="{{ hora }}">
+                            <div class="asignatura">{{ clase.asignatura }}</div>
+                            <div class="clase-info">
+                                <div class="curso"><i class="fas fa-chalkboard"></i> {{ clase.curso }}</div>
+                                <div class="profesor"><i class="fas fa-user-tie"></i> {{ clase.profesor }}</div>
+                            </div>
+                        </div>
+                        {% endif %}
+                    </td>
+                    {% endfor %}
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="no-data-container">
+        <i class="fas fa-calendar-times"></i>
+        <p>No hay horarios para mostrar con los filtros seleccionados.</p>
+    </div>
+    {% endif %}
+
+    <!-- Ventana Modal para detalles de la clase -->
+    <div class="modal-overlay" id="clase-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="modal-asignatura"></h3>
+                <button class="modal-close" id="modal-close-btn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p><i class="fas fa-chalkboard"></i> <strong>Curso:</strong> <span id="modal-curso"></span></p>
+                <p><i class="fas fa-user-tie"></i> <strong>Profesor:</strong> <span id="modal-profesor"></span></p>
+                <p><i class="fas fa-clock"></i> <strong>Horario:</strong> <span id="modal-hora"></span></p>
+            </div>
+            <div class="modal-actions">
+                <form id="form-eliminar" method="POST" style="display: inline;"
+                    onsubmit="event.preventDefault(); showConfirmModal('¿Estás seguro de que quieres eliminar este horario?', () => this.submit());">
+                    <button type="submit" class="btn btn-danger">Eliminar</button>
+                </form>
+                <a href="#" id="btn-editar" class="btn btn-primary">Editar</a>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const modal = document.getElementById('clase-modal');
+        const modalCloseBtn = document.getElementById('modal-close-btn');
+        const filtroSelect = document.getElementById('id_profesor');
+
+        // Auto-submit del filtro
+        filtroSelect.addEventListener('change', () => document.getElementById('filtro-form').submit());
+
+        const claseCards = document.querySelectorAll('.clase-card');
+
+        claseCards.forEach(card => {
+            card.addEventListener('click', () => {
+                // Obtener datos de la tarjeta
+                const id = card.dataset.id;
+                const asignatura = card.dataset.asignatura;
+                const curso = card.dataset.curso;
+                const profesor = card.dataset.profesor;
+                const hora = card.dataset.hora;
+
+                // Poblar el modal con los datos
+                document.getElementById('modal-asignatura').textContent = asignatura;
+                document.getElementById('modal-curso').textContent = curso;
+                document.getElementById('modal-profesor').textContent = profesor;
+                document.getElementById('modal-hora').textContent = hora;
+
+                // Configurar las acciones (Editar y Eliminar)
+                const editUrl = `{{ url_for('main.editar_horario', id=0) }}`.replace('0', id);
+                document.getElementById('btn-editar').href = editUrl;
+
+                const deleteUrl = `{{ url_for('main.eliminar_horario', id=0) }}`.replace('0', id);
+                document.getElementById('form-eliminar').action = deleteUrl;
+
+                // Mostrar el modal
+                modal.classList.add('active');
+            });
+        });
+
+        // Función para cerrar el modal
+        const closeModal = () => modal.classList.remove('active');
+
+        modalCloseBtn.addEventListener('click', closeModal);
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) closeModal(); // Cierra si se hace clic en el fondo
+        });
+    });
+</script>
+{% endblock %}

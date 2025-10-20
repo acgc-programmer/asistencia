@@ -1,0 +1,45 @@
+{% if total_pages > 1 %}
+<nav aria-label="Navegación de página" class="pagination-container">
+    <ul class="pagination">
+
+        {# Botón Anterior #}
+        <li class="page-item {% if page <= 1 %}disabled{% endif %}">
+            <a class="page-link" href="{{ url_for(request.endpoint, page=page-1, **request.args) }}" aria-label="Anterior">
+                <span aria-hidden="true">&laquo;</span>
+            </a>
+        </li>
+
+        {# Lógica para mostrar números de página con elipses #}
+        {% set start = [1, page - 2] | max %}
+        {% set end = [total_pages, page + 2] | min %}
+
+        {% if start > 1 %}
+            <li class="page-item"><a class="page-link" href="{{ url_for(request.endpoint, page=1, **request.args) }}">1</a></li>
+            {% if start > 2 %}
+                <li class="page-item disabled"><span class="page-link">...</span></li>
+            {% endif %}
+        {% endif %}
+
+        {% for p in range(start, end + 1) %}
+            <li class="page-item {% if p == page %}active{% endif %}">
+                <a class="page-link" href="{{ url_for(request.endpoint, page=p, **request.args) }}">{{ p }}</a>
+            </li>
+        {% endfor %}
+
+        {% if end < total_pages %}
+            {% if end < total_pages - 1 %}
+                <li class="page-item disabled"><span class="page-link">...</span></li>
+            {% endif %}
+            <li class="page-item"><a class="page-link" href="{{ url_for(request.endpoint, page=total_pages, **request.args) }}">{{ total_pages }}</a></li>
+        {% endif %}
+
+        {# Botón Siguiente #}
+        <li class="page-item {% if page >= total_pages %}disabled{% endif %}">
+            <a class="page-link" href="{{ url_for(request.endpoint, page=page+1, **request.args) }}" aria-label="Siguiente">
+                <span aria-hidden="true">&raquo;</span>
+            </a>
+        </li>
+
+    </ul>
+</nav>
+{% endif %}

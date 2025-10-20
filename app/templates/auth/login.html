@@ -1,0 +1,57 @@
+{% extends "navbar.html" %}
+
+{% block title %}Iniciar Sesión - Mi Aplicación{% endblock %}
+
+{% block head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/login.css') }}" />
+{% endblock %}
+
+{% block content %}
+<div class="login-container">
+    <form action="{{ url_for('main.login') }}" method="POST">
+        <h2>Iniciar Sesión</h2>
+        <p>Bienvenido de nuevo. Ingresa tus credenciales.</p>
+
+        <!-- Campo de Usuario o Correo -->
+        <div class="input-group">
+            <input type="text" name="username" placeholder="Usuario o Correo electrónico" required />
+        </div>
+
+        <!-- Campo de Contraseña -->
+        <div class="input-group">
+            <input type="password" name="password" id="password" placeholder="Contraseña" required />
+            <i class="fa-solid fa-eye eye-icon" id="toggle-password" onclick="togglePassword()"></i>
+        </div>
+
+        <!-- Botón de Inicio de Sesión -->
+        <button type="submit">Iniciar Sesión</button>
+    </form>
+
+    <div class="footer">
+        <a href="{{ url_for('main.recuperar') }}">¿Olvidaste tu contraseña?</a>
+        <p>¿No tienes cuenta? <a href="{{ url_for('main.registro') }}">Regístrate</a></p>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<!-- Cargar FontAwesome -->
+<script src="https://kit.fontawesome.com/a2d04d6c0b.js" crossorigin="anonymous"></script>
+
+<script>
+    function togglePassword() {
+        const passwordField = document.getElementById("password");
+        const eyeIcon = document.getElementById("toggle-password");
+
+        if (passwordField.type === "password") {
+            passwordField.type = "text";
+            eyeIcon.classList.remove("fa-eye");
+            eyeIcon.classList.add("fa-eye-slash");
+        } else {
+            passwordField.type = "password";
+            eyeIcon.classList.remove("fa-eye-slash");
+            eyeIcon.classList.add("fa-eye");
+        }
+    }
+</script>
+{% endblock %}
