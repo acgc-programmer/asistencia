@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>{% block title %}Mi Aplicación{% endblock %}</title>
+
+  <!-- Link CSS -->
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/navbar.css') }}">
+  <script src="https://kit.fontawesome.com/a2d04d6c0b.js" crossorigin="anonymous"></script>
+
+  <style>
+      /* --- ESTILOS PARA LA VENTANA MODAL DE CONFIRMACIÓN --- */
+      .modal-overlay {
+          position: fixed;
+          top: 0;
+          left: 0;
+          width: 100%;
+          height: 100%;
+          background: rgba(0, 0, 0, 0.6);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          z-index: 3000;
+          opacity: 0;
+          visibility: hidden;
+          transition: opacity 0.3s ease, visibility 0.3s ease;
+      }
+      .modal-overlay.active {
+          opacity: 1;
+          visibility: visible;
+      }
+      .modal-content {
+          background: #fff;
+          padding: 2rem;
+          border-radius: 12px;
+          width: 90%;
+          max-width: 450px;
+          text-align: center;
+          box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.3);
+          transform: translateY(-20px);
+          transition: transform 0.3s ease;
+      }
+      .modal-overlay.active .modal-content {
+          transform: translateY(0);
+      }
+      .modal-content h3 {
+          margin-top: 0;
+          margin-bottom: 1rem;
+          color: #1f2937;
+          font-size: 1.4rem;
+          font-weight: 700;
+      }
+      .modal-content p {
+          margin-bottom: 2rem;
+          color: #6b7280;
+          font-size: 1rem;
+      }
+      .modal-actions {
+          display: flex;
+          justify-content: center;
+          gap: 1rem;
+      }
+      /* Overlay para el menú móvil */
+      .nav-overlay {
+          position: fixed;
+          top: 0;
+          left: 0;
+          width: 100%;
+          height: 100%;
+          background: rgba(0, 0, 0, 0.5);
+          z-index: 998;
+          opacity: 0;
+          visibility: hidden;
+          transition: opacity 0.4s ease, visibility 0.4s ease;
+      }
+      .nav-overlay.active {
+          opacity: 1;
+          visibility: visible;
+      }
+      .eliminar-link {
+          background: none;
+          border: none;
+          color: #ef4444;
+          cursor: pointer;
+          padding: 0;
+          font-size: inherit;
+          text-decoration: underline;
+      }
+      .eliminar-link:hover {
+          color: #dc2626;
+          text-decoration: none;
+      }
+      .btn-secondary {
+          background: #6b7280;
+          color: white;
+          padding: 0.6rem 1.3rem;
+          border: none;
+          border-radius: 8px;
+          font-weight: 600;
+          cursor: pointer;
+          transition: all 0.3s ease;
+      }
+      .btn-secondary:hover {
+          background: #4b5563;
+          transform: translateY(-2px);
+      }
+      .btn-danger {
+          background: #ef4444;
+          color: white;
+          padding: 0.6rem 1.3rem;
+          border: none;
+          border-radius: 8px;
+          font-weight: 600;
+          cursor: pointer;
+          transition: all 0.3s ease;
+      }
+      .btn-danger:hover {
+          background: #dc2626;
+          transform: translateY(-2px);
+      }
+  </style>
+  {% block head %}{% endblock %}
+</head>
+
+<body>
+  <!-- Navbar -->
+  <nav>
+    <div class="logo">
+      <i class="fas fa-graduation-cap"></i>
+      AsisPro
+    </div>
+
+    <div class="nav-menu" id="nav-menu">
+      <ul>
+        <li><a href="{{ url_for('main.index') }}" class="{{ 'active' if request.endpoint == 'main.index' else '' }}">Inicio</a></li>
+
+        {# Menú para Administradores y Profesores #}
+        {% if user and (user.role == 1 or user.role == 2) %}
+            <li><a href="{{ url_for('main.asistencias') }}" class="{{ 'active' if 'asistencias' in request.endpoint else '' }}">Asistencias</a></li>
+        {% endif %}
+
+        {# Menú solo para Administradores #}
+        {% if user and user.role == 1 %}
+            <li><a href="{{ url_for('main.profesores') }}" class="{{ 'active' if 'profesores' in request.endpoint else '' }}">Profesores</a></li>
+            <li><a href="{{ url_for('main.cursos') }}" class="{{ 'active' if 'cursos' in request.endpoint else '' }}">Cursos</a></li>
+            <li><a href="{{ url_for('main.estudiantes') }}" class="{{ 'active' if 'estudiantes' in request.endpoint else '' }}">Estudiantes</a></li>
+            <li><a href="{{ url_for('main.asignatura') }}" class="{{ 'active' if 'asignatura' in request.endpoint else '' }}">Asignatura</a></li>
+            <li><a href="{{ url_for('main.horario') }}" class="{{ 'active' if 'horario' in request.endpoint else '' }}">Horario</a></li>
+            <li><a href="{{ url_for('main.reporte') }}" class="{{ 'active' if 'reporte' in request.endpoint else '' }}">Reporte</a></li>
+            <li><a href="{{ url_for('main.listar_usuarios') }}" class="{{ 'active' if 'usuarios' in request.endpoint else '' }}">Usuarios</a></li>
+        {% endif %}
+
+        {% if user and user.role == 3 %}
+            <li><a href="{{ url_for('main.mi_asistencia') }}" class="{{ 'active' if 'mi_asistencia' in request.endpoint else '' }}">Mi Asistencia</a></li>
+            <li><a href="{{ url_for('main.mi_reporte') }}" class="{{ 'active' if 'mi_reporte' in request.endpoint else '' }}">Mi Reporte</a></li>
+        {% endif %}
+      </ul>
+    </div>
+
+    <div class="nav-right">
+      {% if not user %}
+        <a href="{{ url_for('main.login') }}" class="iniciar">Iniciar Sesión</a>
+      {% else %}
+        <div class="user-menu-container">
+          <button id="user-menu-btn" class="user-menu-btn">
+            {% if user and user.avatar %}
+              <img src="{{ user.avatar }}" alt="Foto de perfil" class="profile-pic">
+            {% else %}
+              <i class="fas fa-user-circle"></i>
+            {% endif %}
+            <span class="username">{{ user.username if user else 'Usuario' }}</span>
+            <i id="foto" class="fas fa-chevron-down arrow-icon"></i>
+          </button>
+          <div id="user-dropdown" class="user-dropdown">
+            <a href="{{ url_for('main.editar_perfil') }}"><i class="fas fa-user-edit"></i> Editar Perfil</a>
+            <a href="{{ url_for('main.logout') }}"><i class="fas fa-sign-out-alt"></i> Cerrar Sesión</a>
+          </div>
+        </div>
+      {% endif %}
+      <button class="menu-toggle" id="menu-toggle" aria-label="Toggle menu"><i class="fas fa-bars"></i>☰</button>
+    </div>
+  </nav>
+
+  <!-- Overlay para el menú móvil -->
+  <div class="nav-overlay" id="nav-overlay"></div>
+
+  <!-- Flash Messages -->
+  <div class="flash-messages">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+          <div class="alert alert-{{ category }}">
+            <span>{{ message }}</span>
+            <button type="button" class="close" onclick="this.parentElement.style.display='none';" aria-label="Cerrar mensaje">&times;</button>
+          </div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+  </div>
+
+  <!-- Modal de Confirmación Genérico -->
+  <div class="modal-overlay" id="confirm-modal">
+      <div class="modal-content">
+          <h3>Confirmar Acción</h3>
+          <p id="confirm-modal-text">¿Estás seguro?</p>
+          <div class="modal-actions">
+              <button id="confirm-modal-cancel" class="btn-secondary">Cancelar</button>
+              <button id="confirm-modal-ok" class="btn-danger">Confirmar</button>
+          </div>
+      </div>
+  </div>
+
+  <!-- Main Content -->
+  <main>
+    {% block content %}{% endblock %}
+  </main>
+
+  <!-- JS -->
+  <script src="{{ url_for('static', filename='js/navbar.js') }}"></script>
+  {% block scripts %}{% endblock %}
+
+  {% if session.get('user_role') == 1 %}
+    <script src="{{ url_for('static', filename='js/atajos.js') }}"></script>
+  {% endif %}
+
+  <!-- Footer -->
+  <footer>
+    <p>© 2025 I.E.D. Simón Bolívar</p>
+    <div class="flex">
+      <a href="#"><i class="fab fa-facebook"></i>Facebook</a>
+      <a href="#"><i class="fab fa-twitter"></i>Twitter</a>
+      <a href="#"><i class="fab fa-instagram"></i>Instagram</a>
+    </div>
+  </footer>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const userMenuBtn = document.getElementById('user-menu-btn');
+      const userDropdown = document.getElementById('user-dropdown');
+      const menuToggle = document.getElementById('menu-toggle');
+      const navMenu = document.getElementById('nav-menu');
+      const navOverlay = document.getElementById('nav-overlay');
+
+      // Menú de usuario
+      if (userMenuBtn) {
+        userMenuBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          userDropdown.classList.toggle('active');
+          userMenuBtn.classList.toggle('active');
+        });
+
+        // Cerrar menús al hacer clic fuera
+        document.addEventListener('click', (e) => {
+          if (!userMenuBtn.contains(e.target) && !userDropdown.contains(e.target)) {
+            userDropdown.classList.remove('active');
+            userMenuBtn.classList.remove('active');
+          }
+        });
+      }
+
+      // Auto-ocultar mensajes flash
+      const flashMessages = document.querySelectorAll('.flash-messages .alert');
+      flashMessages.forEach(msg => {
+        setTimeout(() => {
+          msg.style.transition = 'opacity 0.5s ease, transform 0.5s ease';
+          msg.style.opacity = '0';
+          msg.style.transform = 'translateX(100px)';
+          setTimeout(() => msg.remove(), 500);
+        }, 5000);
+      });
+
+      // Modal de confirmación
+      const confirmModal = document.getElementById('confirm-modal');
+      if (confirmModal) {
+        const confirmModalText = document.getElementById('confirm-modal-text');
+        const confirmOkBtn = document.getElementById('confirm-modal-ok');
+        const confirmCancelBtn = document.getElementById('confirm-modal-cancel');
+        let confirmCallback = null;
+
+        window.showConfirmModal = (message, callback) => {
+          confirmModalText.textContent = message;
+          confirmCallback = callback;
+          confirmModal.classList.add('active');
+        };
+
+        const closeModal = () => {
+          confirmModal.classList.remove('active');
+          confirmCallback = null;
+        };
+
+        confirmOkBtn.addEventListener('click', () => {
+          if (confirmCallback) confirmCallback();
+          closeModal();
+        });
+
+        confirmCancelBtn.addEventListener('click', closeModal);
+        
+        confirmModal.addEventListener('click', (e) => {
+          if (e.target === confirmModal) closeModal();
+        });
+      }
+    });
+  </script>
+</body>
+</html>

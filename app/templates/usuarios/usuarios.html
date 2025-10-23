@@ -1,0 +1,79 @@
+{% extends "navbar.html" %}
+{% block title %}Gestión de Usuarios{% endblock %}
+
+{% block head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/tablas.css') }}">
+<script src="https://kit.fontawesome.com/a2d04d6c0b.js" crossorigin="anonymous"></script>
+<style>
+    .estado-activo {
+        color: #28a745;
+        font-weight: bold;
+    }
+
+    .estado-inactivo {
+        color: #dc3545;
+        font-weight: bold;
+    }
+
+    .acciones form {
+        display: inline-block;
+        margin-left: 5px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="title-container">
+        <h2 class="titulo">Gestión de Usuarios</h2>
+        <a href="{{ url_for('main.admin_registro') }}" class="nueva"><i class="fas fa-user-plus"></i>
+            Registrar Usuario</a>
+    </div>
+
+    <div class="table-container">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Usuario</th>
+                    <th>Nombre Completo</th>
+                    <th>Correo</th>
+                    <th>Rol</th>
+                    <th>Fecha Registro</th>
+                    <th>Estado</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for usuario in usuarios %}
+                <tr>
+                    <td>{{ usuario.username }}</td>
+                    <td>{{ usuario.nombre_completo }}</td>
+                    <td>{{ usuario.correo }}</td>
+                    <td>{{ usuario.nombre_rol }}</td>
+                    <td>{{ usuario.fecha_registro.strftime('%Y-%m-%d') if usuario.fecha_registro else 'N/A' }}</td>
+                    <td>
+                        {% if usuario.estado %}
+                        <span class="estado-activo">Activo</span>
+                        {% else %}
+                        <span class="estado-inactivo">Inactivo</span>
+                        {% endif %}
+                    </td>
+                    <td class="acciones">
+                        <a href="{{ url_for('main.editar_usuario', id=usuario.id_usuario) }}" class="editar">Editar</a>
+                        |
+                        <form action="{{ url_for('main.eliminar_usuario', id=usuario.id_usuario) }}" method="POST"
+                            onsubmit="event.preventDefault(); showConfirmModal('¿Estás SEGURO de que quieres eliminar este usuario? Esta acción es PERMANENTE y no se puede deshacer.', () => this.submit());">
+                            <button type="submit" class="eliminar-link">Eliminar</button>
+                        </form>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="7" class="text-center">No hay usuarios registrados.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

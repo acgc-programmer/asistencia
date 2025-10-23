@@ -1,0 +1,38 @@
+{% extends 'navbar.html' %}
+
+{% block title %}Nuevo Curso{% endblock %}
+
+{% block head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/formulario.css') }}" />
+{% endblock %}
+{% block content %}
+<div class="form-container">
+    <form method="POST" action="{{ url_for('main.registrar_curso') }}">
+        <h2>Registrar Nuevo Curso</h2>
+        <p class="text-muted">Completa los datos del curso y añade el profesor director de curso.</p>
+
+        <div class="form-group">
+
+            <div class="input-group">
+                <label for="grado">Grado</label>
+                <input type="text" class="form-control" id="grado" name="grado" required>
+            </div>
+
+            <div class="input-group">
+                <label for="id_profesor">Profesor Asignado</label>
+                <select class="form-control" id="id_profesor" name="id_profesor" required>
+                    <option value="">Seleccione un profesor</option>
+                    {% for profesor in profesores %}
+                    <option value="{{ profesor[0] }}">{{ profesor[1] }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="form-actions">
+                <button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> Registrar</button>
+                <a href="{{ url_for('main.cursos') }}" class="btn btn-secondary" style="text-decoration: none;"><i
+                class="fas fa-times"></i> Volver</a>
+            </div>
+    </form>
+</div>
+{% endblock %}

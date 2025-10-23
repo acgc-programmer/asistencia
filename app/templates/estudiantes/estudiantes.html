@@ -1,0 +1,145 @@
+{% extends "navbar.html" %}
+{% block title %}Lista de Estudiantes{% endblock %}
+
+{% block head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/tablas.css') }}">
+<script src="https://kit.fontawesome.com/a2d04d6c0b.js" crossorigin="anonymous"></script>
+<style>
+    .container {
+        max-width: 90%;
+        margin: 2rem auto;
+        padding: 1rem;
+    }
+
+    .header-actions {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 2rem;
+    }
+
+    .acordeon-curso {
+        margin-bottom: 1rem;
+        border-radius: 8px;
+        overflow: hidden;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    }
+
+    .acordeon-header {
+        background-color: var(--primary-color);
+        color: white;
+        padding: 1rem 1.5rem;
+        cursor: pointer;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        transition: background-color 0.3s ease;
+    }
+
+    .acordeon-header:hover {
+        background-color: #1e40af;
+        /* Un poco más claro que el primario */
+    }
+
+    .acordeon-header h3 {
+        margin: 0;
+        font-size: 1.3rem;
+    }
+
+    .acordeon-header .icon {
+        transition: transform 0.3s ease;
+    }
+
+    .acordeon-header.active .icon {
+        transform: rotate(180deg);
+    }
+
+    .acordeon-body {
+        max-height: 0;
+        overflow: hidden;
+        transition: max-heigth 0.4s ease-out;
+        background-color: #fff;
+    }
+
+    .acordeon-body .table-container {
+        padding: 1rem;
+        margin: 0;
+        box-shadow: none;
+    }
+    .eliminar-link {
+        background: none;
+        border: none;
+        color: #dc3545; /* Color rojo para eliminar */
+        cursor: pointer;
+        padding: 0;
+        font-size: inherit;
+        text-decoration: underline;
+    }
+</style>
+{% endblock %}
+{% block content %}
+<div class="title-container">
+    <h2 class="titulo">Estudiantes por Curso</h2>
+    <a href="{{ url_for('main.registrar_estudiante') }}" class="nueva"><i class="fas fa-user-plus"></i> Registrar
+        Estudiante</a>
+</div>
+<div class="container">
+    {% for grado, estudiantes in estudiantes_por_grado.items() %}
+    <div class="acordeon-curso">
+        <div class="acordeon-header">
+            <h3>Curso: {{ grado }}</h3>
+            <i class="fas fa-chevron-down icon"></i>
+        </div>
+        <div class="acordeon-body">
+            <div class="table-container">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Nombre del Estudiante</th>
+                            <th style="width: 150px;">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for estudiante in estudiantes %}
+                        <tr>
+                            <td>{{ estudiante[1] }}</td>
+                            <td>
+                                <div class="acciones">
+                                <a href="{{ url_for('main.editar_estudiante', id=estudiante[0]) }}" class="editar">Editar</a>
+                                <form action="{{ url_for('main.eliminar_estudiante', id=estudiante[0]) }}" method="POST"
+                                    style="display:inline; margin: 0;"
+                                    onsubmit="event.preventDefault(); showConfirmModal('¿Estás seguro de que quieres eliminar a este estudiante?', () => this.submit());">
+                                    <button type="submit" class="eliminar-link">Eliminar</button>
+                                </form>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <div class="alert alert-info">No hay estudiantes registrados.</div>
+    {% endfor %}
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const acordeones = document.querySelectorAll('.acordeon-header');
+
+        acordeones.forEach(acordeon => {
+            acordeon.addEventListener('click', () => {
+                acordeon.classList.toggle('active');
+                const body = acordeon.nextElementSibling;
+                if (body.style.maxHeight) {
+                    body.style.maxHeight = null;
+                } else {
+                    body.style.maxHeight = body.scrollHeight + "px";
+                }
+            });
+        });
+    });
+</script>
+{% endblock %}

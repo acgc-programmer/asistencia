@@ -1,0 +1,177 @@
+{% extends 'navbar.html' %}
+
+{% block head %}
+<script src="https://kit.fontawesome.com/a2d04d6c0b.js" crossorigin="anonymous"></script>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/formulario.css') }}">
+{% endblock %}
+
+{% block content %}
+<style>
+  .autocomplete-wrapper {
+    position: relative;
+    width: 100%;
+  }
+  #resultados {
+    border: 1px solid #ccc;
+    max-height: 200px;
+    overflow-y: auto;
+    margin: 0;
+    padding-left: 0;
+    position: absolute;
+    width: 100%;
+    background: white;
+    z-index: 1000;
+    list-style-type: none;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    border-radius: 0 0 6px 6px;
+  }
+  #resultados li {
+    padding: 10px 15px;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+  }
+  #resultados li:hover, #resultados li:focus {
+    background-color: #f0f0f0;
+    outline: none;
+  }
+  .input-group input[readonly] {
+      background-color: #e9ecef;
+      cursor: not-allowed;
+  }
+</style>
+
+<div class="form-container">
+  <form method="POST" action="{{ url_for('main.registrar_estudiante') }}">
+    <h2>Registrar Estudiante</h2>
+    <p class="text-muted">Busca un usuario existente para vincularlo como estudiante a un curso.</p>
+
+    <div class="input-group">
+      <label for="usuario_buscar">Buscar Usuario</label>
+      <div class="autocomplete-wrapper">
+        <input type="text" id="usuario_buscar" autocomplete="off" placeholder="Escribe nombre o documento del usuario..." aria-autocomplete="list" aria-haspopup="true" aria-controls="resultados" aria-expanded="false">
+        <ul id="resultados" role="listbox" aria-label="Resultados de búsqueda"></ul>
+      </div>
+    </div>
+
+    <input type="hidden" name="id_usuario" id="id_usuario">
+
+    <div class="input-group">
+      <label for="nombre_completo">Nombre Completo</label>
+      <input type="text" name="nombre_completo" id="nombre_completo" readonly required>
+    </div>
+
+    <div class="input-group">
+      <label for="documento">Documento</label>
+      <input type="text" name="documento" id="documento" readonly required>
+    </div>
+
+    <div class="input-group">
+      <label for="username">Nombre de Usuario</label>
+      <input type="text" name="username" id="username" readonly>
+    </div>
+
+    <div class="input-group">
+      <label for="curso">Asignar al Curso</label>
+      <select name="curso" id="curso" required>
+        <option value="">Selecciona un curso</option>
+        {% for curso in cursos %}
+          <option value="{{ curso[0] }}">{{ curso[1] }} - Prof. {{ curso[2] or 'Sin profesor' }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div class="form-actions">
+      <a href="{{ url_for('main.estudiantes') }}" class="btn btn-secondary"><i class="fas fa-arrow-left"></i> Volver</a>
+      <button type="submit" class="btn btn-primary"><i class="fas fa-user-plus"></i> Registrar Estudiante</button>
+    </div>
+  </form>
+</div>
+
+<script>
+  const buscarUsuariosURL = "{{ url_for('main.buscar_usuarios') }}";
+
+  document.addEventListener('DOMContentLoaded', function () {
+    const inputBuscar = document.getElementById('usuario_buscar');
+    const inputIdUsuario = document.getElementById('id_usuario');
+    const resultados = document.getElementById('resultados');
+    const inputNombre = document.getElementById('nombre_completo');
+    const inputDocumento = document.getElementById('documento');
+    const inputUsername = document.getElementById('username');
+
+    let timeout = null;
+
+    inputBuscar.addEventListener('input', function () {
+      clearTimeout(timeout);
+      const query = this.value.trim();
+      if (query.length < 2) {
+        resultados.innerHTML = '';
+        resultados.style.display = 'none';
+        inputIdUsuario.value = '';
+        inputBuscar.setAttribute('aria-expanded', 'false');
+        return;
+      }
+
+      timeout = setTimeout(() => {
+        fetch(`${buscarUsuariosURL}?q=${encodeURIComponent(query)}`)
+          .then(response => {
+            if (!response.ok) {
+              throw new Error('Error en la respuesta del servidor');
+            }
+            return response.json();
+          })
+          .then(data => {
+            resultados.innerHTML = '';
+            resultados.style.display = 'block';
+            if (data.length === 0) {
+              resultados.innerHTML = '<li role="option" aria-disabled="true">No se encontraron usuarios</li>';
+              inputIdUsuario.value = '';
+              inputBuscar.setAttribute('aria-expanded', 'true');
+              return;
+            }
+            data.forEach(usuario => {
+              const li = document.createElement('li');
+              li.textContent = usuario.label;
+              li.setAttribute('role', 'option');
+              li.tabIndex = 0;
+              li.addEventListener('click', function () {
+                inputBuscar.value = usuario.label;
+                inputIdUsuario.value = usuario.id;
+
+                inputNombre.value = usuario.nombre;
+                inputDocumento.value = usuario.identificacion;
+                inputUsername.value = usuario.username || '';
+
+                resultados.innerHTML = '';
+                resultados.style.display = 'none';
+                inputBuscar.setAttribute('aria-expanded', 'false');
+              });
+
+              li.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  li.click();
+                }
+              });
+
+              resultados.appendChild(li);
+            });
+            inputBuscar.setAttribute('aria-expanded', 'true');
+          })
+          .catch(error => {
+            console.error('Error en fetch:', error);
+            resultados.innerHTML = '<li role="option" aria-disabled="true">Error al buscar usuarios</li>';
+            inputBuscar.setAttribute('aria-expanded', 'true');
+          });
+      }, 300);
+    });
+
+    document.addEventListener('click', function (e) {
+      if (!resultados.contains(e.target) && e.target !== inputBuscar) {
+        resultados.innerHTML = '';
+        resultados.style.display = 'none';
+        inputBuscar.setAttribute('aria-expanded', 'false');
+      }
+    });
+  });
+</script>
+{% endblock %}

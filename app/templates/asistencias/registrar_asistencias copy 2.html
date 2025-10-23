@@ -1,0 +1,323 @@
+{% extends "navbar.html" %}
+{% block title %}Registrar Asistencias{% endblock %}
+
+{% block head %}
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/asistencia.css') }}" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/select2.min.css') }}" />">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/tablas.css') }}" />
+{% endblock %}
+
+{% block content %}
+<!-- SELECT2 CSS eliminado, no se usa -->
+
+<style>
+  /* Estilos para input y autocompletado */
+  .autocomplete-wrapper {
+    position: relative;
+    width: 100%;
+  }
+  #id_profesor_input {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    font-size: 1rem;
+    box-sizing: border-box;
+    background: #fff;
+  }
+  #profesores_resultados {
+    border: 1px solid #ccc;
+    max-height: 200px;
+    overflow-y: auto;
+    margin: 0;
+    padding-left: 0;
+    position: absolute;
+    width: 100%;
+    background: white;
+    z-index: 1000;
+    list-style-type: none;
+    top: 38px; /* ajusta para que quede debajo del input */
+    left: 0;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.15);
+  }
+  #profesores_resultados li {
+    padding: 8px 12px;
+    cursor: pointer;
+  }
+  #profesores_resultados li:hover, #profesores_resultados li:focus {
+    background-color: #eee;
+    outline: none;
+  }
+</style>
+
+<div class="container mt-4">
+  <h2>Registrar Asistencias</h2>
+
+  <form method="POST" enctype="multipart/form-data" action="{{ url_for('main.registrar_asistencia') }}" id="form-asistencia">
+    <!-- PROFESOR -->
+    <div class="mb-3 autocomplete-wrapper">
+      <label for="id_profesor_input" class="form-label">Profesor</label>
+      <input type="text" id="id_profesor_input" name="profesor_nombre" placeholder="Escriba para buscar profesor" autocomplete="off" required>
+      <ul id="profesores_resultados" role="listbox" aria-label="Resultados de búsqueda profesores"></ul>
+      <input type="hidden" id="id_profesor_real" name="id_profesor_real" required>
+    </div>
+
+    <!-- HORARIO -->
+    <div class="mb-3">
+      <label for="id_horario" class="form-label">Horario</label>
+      <select name="id_horario" id="id_horario" class="form-control" required>
+        <option value="">-- Seleccione horario --</option>
+      </select>
+    </div>
+
+    <!-- CURSO -->
+    <div class="mb-3">
+      <label for="id_curso" class="form-label">Curso</label>
+      <select name="id_curso" id="id_curso" class="form-control" required>
+        <option value="">-- Seleccione curso --</option>
+      </select>
+    </div>
+
+    <!-- FECHA -->
+    <div class="mb-3">
+      <label for="fecha" class="form-label">Fecha</label>
+      <input type="date" name="fecha" id="fecha" class="form-control" required>
+    </div>
+
+    <!-- TABLA ESTUDIANTES -->
+    <div id="tabla-estudiantes" style="display:none;">
+      <h4>Estudiantes</h4>
+      <table class="table table-bordered">
+        <thead>
+          <tr>
+            <th>Estudiante</th>
+            <th>Estado</th>
+            <th>Observaciones</th>
+            <th>Excusa (foto)</th>
+          </tr>
+        </thead>
+        <tbody id="lista-estudiantes"></tbody>
+      </table>
+    </div>
+
+    <button type="submit" class="btn btn-primary mt-3">Guardar Asistencias</button>
+  </form>
+</div>
+
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    const profesorInput = document.getElementById('id_profesor_input');
+    const profesorHidden = document.getElementById('id_profesor_real');
+    const resultados = document.getElementById('profesores_resultados');
+    const horarioSel = document.getElementById('id_horario');
+    const cursoSel = document.getElementById('id_curso');
+    const tbody = document.getElementById('lista-estudiantes');
+    const tablaDiv = document.getElementById('tabla-estudiantes');
+    const form = document.getElementById('form-asistencia');
+
+    let timeout = null;
+    let profesoresCache = [];
+
+    function clearSelect(sel) {
+      sel.innerHTML = '<option value="">-- Seleccione --</option>';
+    }
+    function makeOption(value, text) {
+      const o = document.createElement('option');
+      o.value = value;
+      o.textContent = text;
+      return o;
+    }
+
+    // Función para limpiar resultados
+    function limpiarResultados() {
+      resultados.innerHTML = '';
+      resultados.style.display = 'none';
+    }
+
+    // Evento input para autocompletar profesores
+    profesorInput.addEventListener('input', () => {
+      clearTimeout(timeout);
+      const query = profesorInput.value.trim();
+
+      profesorHidden.value = ''; // limpiar id al modificar texto
+      clearSelect(horarioSel);
+      clearSelect(cursoSel);
+      tbody.innerHTML = '';
+      tablaDiv.style.display = 'none';
+
+      if (query.length < 2) {
+        limpiarResultados();
+        return;
+      }
+
+      timeout = setTimeout(() => {
+        fetch(`/buscar_profesores?q=${encodeURIComponent(query)}`)
+          .then(res => {
+            if (!res.ok) throw new Error('Error al buscar profesores');
+            return res.json();
+          })
+          .then(data => {
+            console.log('Profesores recibidos:', data);
+            profesoresCache = data; // guardamos para búsqueda
+            resultados.innerHTML = '';
+
+            if (data.length === 0) {
+              resultados.innerHTML = '<li role="option" aria-disabled="true">No se encontraron profesores</li>';
+              resultados.style.display = 'block';
+              return;
+            }
+
+            data.forEach(prof => {
+              const li = document.createElement('li');
+              li.textContent = prof.label;  // Usar label que incluye nombre y documento
+              li.setAttribute('role', 'option');
+              li.tabIndex = 0;
+              li.addEventListener('click', () => {
+                profesorInput.value = prof.nombre_completo;  // Mostrar nombre + documento en input
+                profesorHidden.value = prof.id;  // Guardar id en hidden
+
+                limpiarResultados();
+
+                cargarHorariosYCursos(prof.id);
+              });
+              li.addEventListener('keydown', e => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  li.click();
+                }
+              });
+              resultados.appendChild(li);
+            });
+            resultados.style.display = 'block';
+          })
+          .catch(err => {
+            console.error(err);
+            resultados.innerHTML = '<li role="option" aria-disabled="true">Error al buscar profesores</li>';
+            resultados.style.display = 'block';
+          });
+      }, 300);
+    });
+
+    // Cerrar lista resultados al hacer click fuera
+    document.addEventListener('click', (e) => {
+      if (!resultados.contains(e.target) && e.target !== profesorInput) {
+        limpiarResultados();
+      }
+    });
+
+    // Función para cargar horarios y cursos al seleccionar profesor
+    async function cargarHorariosYCursos(id_profesor) {
+      clearSelect(horarioSel);
+      clearSelect(cursoSel);
+      tbody.innerHTML = '';
+      tablaDiv.style.display = 'none';
+
+      if (!id_profesor) return;
+
+      try {
+        const res = await fetch(`/get_horarios_cursos/${id_profesor}`);
+        if (!res.ok) throw new Error('Error al obtener horarios y cursos.');
+        const data = await res.json();
+
+        const cursosMap = new Map();
+        for (const item of data) {
+          horarioSel.appendChild(makeOption(item.id_horario, `${item.dia_semana} — Curso ${item.grado}`));
+          if (!cursosMap.has(item.id_curso)) cursosMap.set(item.id_curso, item.grado);
+        }
+        for (const [id_curso, grado] of cursosMap.entries()) {
+          cursoSel.appendChild(makeOption(id_curso, grado));
+        }
+      } catch (err) {
+        console.error(err);
+        alert('Error al cargar horarios y cursos.');
+      }
+    }
+
+    // Cuando cambia curso -> traer estudiantes
+    cursoSel.addEventListener('change', async () => {
+      const id_curso = cursoSel.value;
+      tbody.innerHTML = '';
+      tablaDiv.style.display = 'none';
+
+      if (!id_curso) return;
+
+      try {
+        const res = await fetch(`/asistencias/estudiantes/${id_curso}`);
+        if (!res.ok) throw new Error('Error al obtener estudiantes');
+        const data = await res.json();
+        const lista = data.estudiantes ? data.estudiantes : data;
+
+        if (!Array.isArray(lista) || lista.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="4">No hay estudiantes en este curso.</td></tr>';
+          tablaDiv.style.display = 'block';
+          return;
+        }
+
+        for (const est of lista) {
+          const id = est.id ?? est[0];
+          const nombre = est.nombre ?? est[1] ?? est[0];
+
+          const tr = document.createElement('tr');
+
+          const tdNombre = document.createElement('td');
+          tdNombre.textContent = nombre;
+          tr.appendChild(tdNombre);
+
+          const tdEstado = document.createElement('td');
+          const selEstado = document.createElement('select');
+          selEstado.name = `estado_${id}`;
+          selEstado.className = 'form-control';
+          ['Presente', 'Ausente', 'Justificado'].forEach(v => {
+            const o = document.createElement('option'); o.value = v; o.textContent = v;
+            selEstado.appendChild(o);
+          });
+          tdEstado.appendChild(selEstado);
+          tr.appendChild(tdEstado);
+
+          const tdObs = document.createElement('td');
+          const inpObs = document.createElement('input');
+          inpObs.type = 'text';
+          inpObs.name = `observaciones_${id}`;
+          inpObs.className = 'form-control';
+          tdObs.appendChild(inpObs);
+          tr.appendChild(tdObs);
+
+          const tdFile = document.createElement('td');
+          const inpFile = document.createElement('input');
+          inpFile.type = 'file';
+          inpFile.name = `excusa_${id}`;
+          inpFile.capture = 'environment';
+          inpFile.className = 'form-control';
+          tdFile.appendChild(inpFile);
+          tr.appendChild(tdFile);
+
+          const hidden = document.createElement('input');
+          hidden.type = 'hidden';
+          hidden.name = 'estudiantes[]';
+          hidden.value = id;
+          tr.appendChild(hidden);
+
+          tbody.appendChild(tr);
+        }
+
+        tablaDiv.style.display = 'block';
+      } catch (err) {
+        console.error('Error al cargar estudiantes:', err);
+        tbody.innerHTML = '<tr><td colspan="4">Error al cargar estudiantes.</td></tr>';
+        tablaDiv.style.display = 'block';
+      }
+    });
+
+    // Validación antes de enviar el formulario para asegurarse de que el profesor es válido
+    form.addEventListener('submit', (e) => {
+      if (!profesorHidden.value) {
+        e.preventDefault();
+        alert('Por favor, seleccione un profesor válido de la lista.');
+        profesorInput.focus();
+      }
+    });
+
+  });
+</script>
+
+{% endblock %}

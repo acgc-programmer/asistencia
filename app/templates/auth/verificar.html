@@ -1,0 +1,32 @@
+{% extends "navbar.html" %}
+
+{% block title %}Verificar Cuenta{% endblock %}
+
+{% block head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/formulario.css') }}" />
+<style>
+    .input-group input {
+        text-align: center;
+        font-size: 1.5rem;
+        letter-spacing: 0.5em;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="form-container">
+    <form action="{{ url_for('main.verificar') }}" method="POST">
+        <h2>Verificar Cuenta</h2>
+        <p class="text-muted">
+            Hemos enviado un código de 6 dígitos a tu correo. Por favor, ingrésalo a continuación.
+        </p>
+
+        <div class="input-group">
+            <label for="codigo">Código de Verificación</label>
+            <input type="text" name="codigo" id="codigo" required maxlength="6" pattern="\d{6}" title="El código debe tener 6 dígitos." />
+        </div>
+
+        <button type="submit" class="btn btn-primary">Verificar</button>
+    </form>
+</div>
+{% endblock %}

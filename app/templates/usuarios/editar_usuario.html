@@ -1,0 +1,65 @@
+{% extends 'navbar.html' %}
+
+{% block title %}Editar Usuario{% endblock %}
+
+{% block head %}
+<script src="https://kit.fontawesome.com/a2d04d6c0b.js" crossorigin="anonymous"></script>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/formulario.css') }}">
+<style>
+    .form-actions { display: flex; gap: 1rem; }
+    .switch { position: relative; display: inline-block; width: 60px; height: 34px; }
+    .switch input { opacity: 0; width: 0; height: 0; }
+    .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; border-radius: 34px; }
+    .slider:before { position: absolute; content: ""; height: 26px; width: 26px; left: 4px; bottom: 4px; background-color: white; transition: .4s; border-radius: 50%; }
+    input:checked + .slider { background-color: #28a745; }
+    input:checked + .slider:before { transform: translateX(26px); }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="form-container">
+    <form method="POST">
+        <h2>Editar Usuario: {{ usuario.username }}</h2>
+        <p class="text-muted">Actualiza los datos del usuario.</p>
+
+        <div class="input-group">
+            <label for="username">Nombre de Usuario</label>
+            <input type="text" name="username" id="username" value="{{ usuario.username }}" required>
+        </div>
+
+        <div class="input-group">
+            <label for="nombre_completo">Nombre Completo</label>
+            <input type="text" name="nombre_completo" id="nombre_completo" value="{{ usuario.nombre_completo }}" required>
+        </div>
+
+        <div class="input-group">
+            <label for="correo">Correo Electrónico</label>
+            <input type="email" name="correo" id="correo" value="{{ usuario.correo }}" required>
+        </div>
+
+        <div class="input-group">
+            <label for="id_rol">Rol</label>
+            <select name="id_rol" id="id_rol" required>
+                {% for rol in roles %}
+                    <option value="{{ rol.id_rol }}" {% if rol.id_rol == usuario.id_rol %}selected{% endif %}>
+                        {{ rol.nombre_rol }}
+                    </option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="input-group">
+            <label>Estado de la Cuenta (Activo/Inactivo)</label>
+            <label class="switch">
+                <input type="checkbox" name="estado" {% if usuario.estado %}checked{% endif %}>
+                <span class="slider"></span>
+            </label>
+        </div>
+
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> Guardar Cambios</button>
+            <a href="{{ url_for('main.listar_usuarios') }}" class="btn btn-secondary" style="text-decoration: none;"><i class="fas fa-arrow-left"></i> Volver</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

@@ -1,0 +1,78 @@
+.horario-table-container {
+    overflow-x: auto;
+    margin-top: 1.5rem;
+    background-color: #fff;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+}
+
+.horario-table {
+    width: 100%;
+    border-collapse: collapse;
+    min-width: 800px;
+}
+
+.horario-table th, .horario-table td {
+    border-bottom: 1px solid #e0e0e0;
+    padding: 0.5rem;
+    text-align: center;
+    vertical-align: top;
+}
+
+.horario-table thead th {
+    background-color: #f8f9fa;
+    font-weight: 600; 
+    border-bottom-width: 2px;
+}
+
+.horario-table .hora-cell {
+    font-weight: 600;
+    font-size: 0.9rem;
+    min-width: 120px;
+}
+
+.clase-celda {
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+}
+
+.clase-celda.selected .clase-card-registro {
+    box-shadow: 0 0 0 3px var(--primary-color), 0 4px 8px rgba(0,0,0,0.1);
+    transform: scale(1.03);
+}
+
+.clase-card-registro {
+    background-color: #fff;
+    border: 1px solid #e0e0e0;
+    border-radius: 4px;
+    text-align: left;
+    font-size: 0.8rem;
+    min-height: 60px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.clase-card-registro .asignatura {
+    font-weight: bold;
+    padding: 0.4rem 0.6rem;
+}
+
+.clase-card-registro .curso {
+    color: #555;
+    font-size: 0.75rem;
+    padding: 0 0.6rem 0.4rem;
+}
+
+/* Colores para las tarjetas (igual que en horario.html) */
+.color-1 { border-left: 4px solid #00bcd4; } .color-1 .asignatura { color: #006064; }
+.color-2 { border-left: 4px solid #4caf50; } .color-2 .asignatura { color: #1b5e20; }
+.color-3 { border-left: 4px solid #ff9800; } .color-3 .asignatura { color: #e65100; }
+.color-4 { border-left: 4px solid #e91e63; } .color-4 .asignatura { color: #880e4f; }
+.color-5 { border-left: 4px solid #673ab7; } .color-5 .asignatura { color: #311b92; }
+.color-6 { border-left: 4px solid #2196f3; } .color-6 .asignatura { color: #0d47a1; }
+.color-7 { border-left: 4px solid #8bc34a; } .color-7 .asignatura { color: #33691e; }
+.color-8 { border-left: 4px solid #ffeb3b; } .color-8 .asignatura { color: #f57f17; }
+.color-9 { border-left: 4px solid #ff5722; } .color-9 .asignatura { color: #bf360c; }
+.color-0 { border-left: 4px solid #607d8b; } .color-0 .asignatura { color: #263238; }

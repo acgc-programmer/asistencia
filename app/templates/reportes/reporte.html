@@ -1,0 +1,86 @@
+{% extends 'navbar.html' %}
+
+{% block title %}Reporte de Asistencia{% endblock %}
+
+{% block head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/reporte.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h2>Reporte de Asistencia</h2>
+
+    <form method="get" class="report-filters">
+        <div class="filter-group">
+            <label for="inicio">Desde:</label>
+            <input type="date" id="inicio" name="inicio" value="{{ filtros_activos.inicio or '' }}">
+        </div>
+        <div class="filter-group">
+            <label for="fin">Hasta:</label>
+            <input type="date" id="fin" name="fin" value="{{ filtros_activos.fin or '' }}">
+        </div>
+        <div class="filter-group">
+            <label for="id_curso">Curso:</label>
+            <select name="id_curso" id="id_curso">
+                <option value="">Todos los cursos</option>
+                {% for curso in cursos %}
+                    <option value="{{ curso.id_curso }}" {% if curso.id_curso == filtros_activos.id_curso %}selected{% endif %}>{{ curso.grado }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="filter-group">
+            <label for="id_profesor">Profesor:</label>
+            <select name="id_profesor" id="id_profesor">
+                <option value="">Todos los profesores</option>
+                {% for prof in profesores %}
+                    <option value="{{ prof.id_profesor }}" {% if prof.id_profesor == filtros_activos.id_profesor %}selected{% endif %}>{{ prof.nombre_completo }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="filter-group">
+            <label for="id_asignatura">Asignatura:</label>
+            <select name="id_asignatura" id="id_asignatura">
+                <option value="">Todas las asignaturas</option>
+                {% for asignatura in asignaturas %}
+                    <option value="{{ asignatura.id_clase }}" {% if asignatura.id_clase == filtros_activos.id_asignatura %}selected{% endif %}>{{ asignatura.tema }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <button type="submit" class="btn-filtrar">Filtrar</button>
+        <a href="{{ url_for('main.reporte') }}" class="btn-limpiar">Limpiar</a>
+    </form>
+
+    <div class="table-container">
+        <table class="report-table">
+        <thead>
+            <tr>
+                <th>Estudiante</th>
+                <th>Curso</th>
+                <th class="text-center">Presentes</th>
+                <th class="text-center">Ausentes</th>
+                <th class="text-center">Tardes</th>
+                <th class="text-center">Justificados</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in reporte %}
+            <tr>
+                <td class="estudiante-info">
+                    <div class="nombre">{{ item.nombre or 'N/A' }}</div>
+                </td>
+                <td>{{ item.grado or 'N/A' }}</td>
+                <td class="dato-numero presente">{{ item.presentes }}</td>
+                <td class="dato-numero ausente">{{ item.ausentes }}</td>
+                <td class="dato-numero tarde">{{ item.tardes or 0 }}</td>
+                <td class="dato-numero justificado">{{ item.justificados }}</td>
+            </tr>
+            {% else %}
+            <tr>
+                <td colspan="6" class="no-data">No hay datos para mostrar con los filtros seleccionados.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    </div>
+</div>
+{% endblock %}

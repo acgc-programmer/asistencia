@@ -1,0 +1,215 @@
+{% extends "navbar.html" %}
+
+{% block title %}Mi Historial de Asistencia{% endblock %}
+
+{% block head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/tablas.css') }}" />
+<style>
+    .container {
+        max-width: 1000px;
+        margin: 2rem auto;
+        padding: 1rem;
+    }
+    .asistencia-card {
+        background-color: #fff;
+        border-radius: 12px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+        margin-bottom: 2rem;
+        overflow: hidden;
+        padding: 2rem;
+    }
+    .asistencia-header {
+        text-align: center;
+        margin-bottom: 2rem;
+        border-bottom: 1px solid #eee;
+        padding-bottom: 1.5rem;
+    }
+    .asistencia-header h2 {
+        margin: 0;
+        font-size: 2rem;
+        color: #333;
+    }
+    .asistencia-header p {
+        margin: 0.2rem 0 0;
+        color: #666;
+    }
+    .table thead th {
+        background-color: #f8f9fa;
+        color: #495057;
+        font-weight: 600;
+        border-bottom: 2px solid #dee2e6;
+        text-transform: uppercase;
+        font-size: 0.85rem;
+        letter-spacing: 0.5px;
+    }
+    .table tbody tr:hover {
+        background-color: #f1f3f5;
+    }
+    .table td {
+        vertical-align: middle;
+    }
+    .table td i {
+        margin-right: 8px;
+        color: #888;
+    }
+
+    /* Badges de Estado */
+    .status-badge {
+        display: inline-block;
+        padding: 0.3em 0.8em;
+        font-size: 0.8rem;
+        font-weight: 600;
+        line-height: 1;
+        text-align: center;
+        white-space: nowrap;
+        vertical-align: baseline;
+        border-radius: 50rem; /* píldora */
+        color: #fff;
+    }
+    .status-presente { background-color: #28a745; }
+    .status-ausente { background-color: #dc3545; }
+    .status-tarde { background-color: #fd7e14; }
+    .status-justificado { background-color: #007bff; }
+
+    /* Estilos para los filtros */
+    .filtros-container {
+        background-color: #f8f9fa;
+        padding: 1.5rem;
+        border-radius: 8px;
+        margin-bottom: 2rem;
+        border: 1px solid #e9ecef;
+    }
+    .filtros-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 1rem;
+        align-items: end;
+    }
+    .filtro-item label {
+        font-size: 0.8rem;
+        font-weight: 600;
+        margin-bottom: 0.4rem;
+        color: #495057;
+        display: block;
+    }
+    .filtro-item input, .filtro-item select {
+        width: 100%;
+        padding: 0.5rem 0.8rem;
+        border: 1px solid #ced4da;
+        border-radius: 5px;
+        font-size: 0.9rem;
+    }
+    .filtro-acciones {
+        display: flex;
+        gap: 0.5rem;
+    }
+    .btn-filtrar, .btn-limpiar {
+        padding: 0.5rem 1rem;
+        border-radius: 5px;
+        text-decoration: none;
+        font-weight: 600;
+        font-size: 0.9rem;
+        border: 1px solid transparent;
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+    .btn-filtrar {
+        background-color: var(--primary-color);
+        color: white;
+    }
+    .btn-limpiar {
+        background-color: #6c757d;
+        color: white;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="asistencia-card">
+        <div class="asistencia-header"> 
+            <h2>Mi Historial de Asistencia</h2>
+            <p>Aquí puedes ver todos tus registros de asistencia.</p>
+        </div>
+
+        <!-- Filtros -->
+        <div class="filtros-container">
+            <form method="get" class="filtros-grid">
+                <div class="filtro-item">
+                    <label for="inicio">Desde:</label>
+                    <input type="date" id="inicio" name="inicio" value="{{ filtros_activos.inicio or '' }}">
+                </div>
+                <div class="filtro-item">
+                    <label for="fin">Hasta:</label>
+                    <input type="date" id="fin" name="fin" value="{{ filtros_activos.fin or '' }}">
+                </div>
+                <div class="filtro-item">
+                    <label for="id_asignatura">Asignatura:</label>
+                    <select name="id_asignatura" id="id_asignatura">
+                        <option value="">Todas</option>
+                        {% for asig in asignaturas %}
+                            <option value="{{ asig.id_asignatura }}" {% if asig.id_asignatura == filtros_activos.id_asignatura %}selected{% endif %}>{{ asig.tema }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="filtro-item">
+                    <label for="id_profesor">Profesor:</label>
+                    <select name="id_profesor" id="id_profesor">
+                        <option value="">Todos</option>
+                        {% for prof in profesores %}
+                            <option value="{{ prof.id_profesor }}" {% if prof.id_profesor == filtros_activos.id_profesor %}selected{% endif %}>{{ prof.nombre_completo }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="filtro-item">
+                    <label for="estado">Estado:</label>
+                    <select name="estado" id="estado">
+                        <option value="">Todos</option>
+                        {% for est in ['Presente', 'Ausente', 'Tarde', 'Justificado'] %}
+                            <option value="{{ est }}" {% if est == filtros_activos.estado %}selected{% endif %}>{{ est }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="filtro-acciones"><button type="submit" class="btn-filtrar">Filtrar</button><a href="{{ url_for('main.mi_asistencia') }}" class="btn-limpiar">Limpiar</a></div>
+            </form>
+        </div>
+
+        <div class="table-container">
+            {% if asistencias %}
+            <table class="table table-striped">
+                <thead>
+                    <tr>
+                        <th>Fecha</th>
+                        <th>Asignatura</th>
+                        <th>Profesor</th>
+                        <th>Horario</th>
+                        <th>Estado</th>
+                        <th>Observaciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in asistencias %}
+                    <tr>
+                        <td><i class="far fa-calendar-alt"></i>{{ item.fecha.strftime('%d/%m/%Y') }}</td>
+                        <td>{{ item.asignatura }}</td>
+                        <td>{{ item.profesor }}</td>
+                        <td><i class="far fa-clock"></i>{{ item.hora_inicio.strftime('%H:%M') }} - {{ item.hora_fin.strftime('%H:%M') }}</td>
+                        <td><span class="status-badge status-{{ item.estado|lower }}">{{ item.estado }}</span></td>
+                        <td>{{ item.observaciones or 'N/A' }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <div class="alert alert-info" style="text-align: center; padding: 2rem;">
+                {% if filtros_activos.values()|select('!=',None)|list|length > 0 %}
+                    No se encontraron registros con los filtros aplicados.
+                {% else %}
+                    Aún no tienes registros de asistencia.
+                {% endif %}
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

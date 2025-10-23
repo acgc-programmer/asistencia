@@ -1,0 +1,46 @@
+{% extends "navbar.html" %}
+{% block title %}Lista de Asignaturas{% endblock %}
+
+{% block head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/tablas.css') }}">
+<script src="https://kit.fontawesome.com/a2d04d6c0b.js" crossorigin="anonymous"></script>
+{% endblock %}
+
+{% block content %}
+<div class="title-container">
+  <h2 class="titulo">Asignaturas</h2>
+  <a href="{{ url_for('main.registrar_asignatura') }}" class="nueva"><i class="fas fa-plus"></i> Registrar
+    Asignatura</a>
+</div>
+<div class="container">
+  <div class="table-container">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Asignatura</th>
+          <th>Curso</th>
+          <th>Profesor(es)</th>
+          <th>Acciones</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for asignatura in asignaturas %}
+        <tr>
+          <td>{{ asignatura[1] }}</td>
+          <td>{{ asignatura[2] }}</td>
+          <td>{{ asignatura[3] or 'Sin profesor asignado' }}</td>
+          <td class="acciones">
+            <a href="{{ url_for('main.editar_asignatura', id=asignatura[0]) }}" class="editar">Editar</a> |
+            <form action="{{ url_for('main.eliminar_asignatura', id=asignatura[0]) }}" method="POST"
+              style="display:inline;"
+              onsubmit="event.preventDefault(); showConfirmModal('¿Estás seguro de que quieres eliminar esta asignatura?', () => this.submit());">
+              <button type="submit" class="eliminar-link">Eliminar</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,51 @@
+{% extends "navbar.html" %}
+
+{% block title %}Recuperar Contraseña{% endblock %}
+
+{% block head %}
+<!-- Estilos del login -->
+<link rel="stylesheet" href="{{ url_for('static', filename='css/login.css') }}" />
+
+<!-- FontAwesome para íconos -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+{% endblock %}
+
+{% block content %}
+<main>
+  <div class="login-container">
+    <form method="POST" action="{{ url_for('main.recuperar') }}">
+      <h2>🔐 Recuperar Contraseña</h2>
+      <p>Ingresa tu nombre de usuario y correo electrónico. Te enviaremos un enlace para restablecer tu contraseña.</p>
+
+      <!-- Flash Messages -->
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+          {% for category, message in messages %}
+            <div class="flash {{ category }}">{{ message }}</div>
+          {% endfor %}
+        {% endif %}
+      {% endwith %}
+
+      <!-- Input: Usuario -->
+      <div class="input-group">
+        <i class="fa-solid fa-user input-icon"></i>
+        <input type="text" name="username" placeholder="Nombre de usuario (opcional)" autocomplete="username">
+      </div>
+
+      <!-- Input: Correo -->
+      <div class="input-group">
+        <i class="fa-solid fa-envelope input-icon"></i>
+        <input type="email" name="correo" placeholder="Correo electrónico" autocomplete="email">
+      </div>
+
+      <!-- Botón -->
+      <button type="submit">Enviar enlace</button>
+
+      <!-- Footer -->
+      <div class="footer">
+        <p>¿Ya recordaste tu contraseña? <a href="{{ url_for('main.login') }}">Inicia sesión aquí</a></p>
+      </div>
+    </form>
+  </div>
+</main>
+{% endblock %}
