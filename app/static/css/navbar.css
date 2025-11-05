@@ -1,7 +1,17 @@
+html,
+body {
+    overflow: auto;
+}
+
+html::-webkit-scrollbar,
+body::-webkit-scrollbar {
+    display: none;
+}
+
 /* === VARIABLES === */
 :root {
-    --primary-color: #3359d5;
-    --primary-dark: #1e3a8a;
+    --primary-color: #003cff;
+    --primary-dark: #5BA4E8;
     --secondary-color: rgba(255, 255, 255, 0.981);
     --text-light: #ffffff;
     --text-dark: #1f2937;
@@ -44,17 +54,25 @@ nav {
     top: 0;
     z-index: 1000;
     box-shadow: var(--shadow-md);
-    transition: all 0.3s ease;
-    border-bottom: 5px #2857d8 outset;
 
+    /* Borde con degradado y transparencia */
+    border-bottom: 5px solid;
+    border-image: linear-gradient(to right, #1f42a251, #4175a661);
+    border-image-slice: 1;
 }
-.iniciar {
+
+
+.iniciar_pc {
     background-color: #2563eb;
     padding: 10px;
     color: white;
     text-decoration: none;
     border-radius: 8px;
     text-align: center
+}
+
+.iniciar_movil {
+    display: none;
 }
 
 /* === LOGO === */
@@ -76,7 +94,8 @@ nav .logo:hover {
 }
 
 /* === MENU NORMAL === */
-.nav-menu { /* Este es el contenedor de los enlaces en escritorio */
+.nav-menu {
+    /* Este es el contenedor de los enlaces en escritorio */
     display: flex;
     align-items: center;
 }
@@ -114,7 +133,7 @@ nav .logo:hover {
 
 /* Estilo para el enlace de la página activa */
 .nav-menu a.active {
-    background-color: rgba(0, 28, 72, 0.718);
+    background-color: rgb(17, 89, 204);
     color: var(--secondary-color);
     font-weight: 600;
 }
@@ -287,6 +306,7 @@ nav .logo:hover {
         opacity: 0;
         transform: translateX(100px);
     }
+
     to {
         opacity: 1;
         transform: translateX(0);
@@ -376,7 +396,8 @@ footer .flex a i {
         padding: 1rem 1.5rem;
     }
 
-    .nav-menu { /* Ocultamos el menú de escritorio en móvil y lo preparamos para ser el panel deslizable */
+    .nav-menu {
+        /* Ocultamos el menú de escritorio en móvil y lo preparamos para ser el panel deslizable */
         display: none;
         position: fixed;
         top: 0;
@@ -385,14 +406,17 @@ footer .flex a i {
         height: 100vh;
         background: linear-gradient(180deg, var(--primary-color) 0%, var(--primary-dark) 100%);
         overflow-y: auto;
-        display: flex; /* Debe ser flex para que la transición funcione */
+        display: flex;
+        /* Debe ser flex para que la transición funcione */
         flex-direction: column;
         transition: right 0.4s ease-in-out, opacity 0.4s ease-in-out, visibility 0.4s ease-in-out;
         box-shadow: -5px 0 20px rgba(0, 0, 0, 0.3);
         padding-top: 70px;
         z-index: 999;
-        opacity: 0; /* Oculto por opacidad */
-        visibility: hidden; /* Oculto para accesibilidad y clics */
+        opacity: 0;
+        /* Oculto por opacidad */
+        visibility: hidden;
+        /* Oculto para accesibilidad y clics */
     }
 
     .menu-toggle {
@@ -454,12 +478,15 @@ footer .flex a i {
         justify-content: center;
         align-items: center;
     }
+
     #foto {
         display: none;
     }
+
     .username {
         display: none;
     }
+
     .user-menu-btn .profile-pic {
         width: 40px;
         height: 40px;
@@ -504,5 +531,21 @@ footer .flex a i {
 
     .nav-menu {
         width: 250px;
+    }
+
+    .iniciar_pc {
+        display: none;
+    }
+
+    .iniciar_movil {
+        display: block;
+        background-color: #2563eb;
+        padding: 10px;
+        color: white;
+        text-decoration: none;
+        border-radius: 8px;
+        text-align: center;
+        width: 60%;
+        margin: 20px auto;
     }
 }

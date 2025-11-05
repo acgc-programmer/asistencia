@@ -412,7 +412,7 @@
         </div>
     </div>
 
-    {% if horario_tabla %}
+    {% if horario_ordenado %}
     <div class="horario-table-container">
         <table class="horario-table">
             <thead>
@@ -424,11 +424,11 @@
                 </tr>
             </thead>
             <tbody>
-                {% for hora, dias in horario_tabla|dictsort %}
+                {% for hora_inicio_obj, rango_horario, dias in horario_ordenado %}
                 <tr>
-                    <td class="hora-cell">{{ hora }}</td>
+                    <td class="hora-cell">{{ rango_horario }}</td>
                     {% for dia in dias_semana %}
-                    <td>
+                    <td class="clase-celda" data-dia="{{ dia }}">
                         {% set clase = dias[dia] %}
                         {% if clase %}
                         <div class="clase-card color-{{ clase.asignatura|hash|abs % 10 }}" style="cursor: pointer;"
@@ -436,7 +436,7 @@
                             data-curso="{{ clase.curso }}" data-profesor="{{ clase.profesor }}" data-hora="{{ hora }}">
                             <div class="asignatura">{{ clase.asignatura }}</div>
                             <div class="clase-info">
-                                <div class="curso"><i class="fas fa-chalkboard"></i> {{ clase.curso }}</div>
+                                <div class="curso"><i class="fas fa-chalkboard"></i> {{ clase.curso }}</div> 
                                 <div class="profesor"><i class="fas fa-user-tie"></i> {{ clase.profesor }}</div>
                             </div>
                         </div>

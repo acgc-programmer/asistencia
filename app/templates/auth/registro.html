@@ -4,7 +4,28 @@
 
 {% block head %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/formulario.css') }}" />
+<script src="https://kit.fontawesome.com/a2d04d6c0b.js" crossorigin="anonymous"></script>
 <style>
+    .input-group {
+        position: relative;
+        margin-bottom: 25px; /* Aumentar espacio para el mensaje de error */
+    }
+    .validation-message {
+        font-size: 0.8rem;
+        position: absolute;
+        bottom: -18px;
+        left: 0;
+    }
+    .input-group input.is-invalid {
+        border-color: #dc3545;
+        box-shadow: 0 0 0 0.2rem rgba(220, 53, 69, 0.25);
+    }
+    .input-group input.is-valid {
+        border-color: #28a745;
+        box-shadow: 0 0 0 0.2rem rgba(40, 167, 69, 0.25);
+    }
+    .text-danger { color: #dc3545; }
+    .text-success { color: #28a745; }
 </style>
 {% endblock %}
 
@@ -17,7 +38,8 @@
         <div class="input-group">
             <i class="fas fa-user input-icon"></i>
             <label for="username">Nombre de Usuario</label>
-            <input type="text" name="username" id="username" required />
+            <input type="text" name="username" id="username" required data-field="username" />
+            <div class="validation-message"></div>
         </div>
 
         <div class="input-group">
@@ -37,19 +59,22 @@
         <div class="input-group">
             <i class="fas fa-envelope input-icon"></i>
             <label for="correo">Correo Electrónico</label>
-            <input type="email" name="correo" id="correo" placeholder="ejemplo@correo.com" required />
+            <input type="email" name="correo" id="correo" placeholder="ejemplo@correo.com" required data-field="correo" />
+            <div class="validation-message"></div>
         </div>
 
         <div class="input-group">
             <i class="fas fa-id-card input-icon"></i>
             <label for="nombre_completo">Nombre Completo</label>
-            <input type="text" name="nombre_completo" id="nombre_completo" required />
+            <input type="text" name="nombre_completo" id="nombre_completo" required data-field="nombre_completo" />
+            <div class="validation-message"></div>
         </div>
 
         <div class="input-group">
             <i class="fas fa-address-card input-icon"></i>
             <label for="identificacion">Documento de Identificación</label>
-            <input type="text" name="identificacion" id="identificacion" required />
+            <input type="text" name="identificacion" id="identificacion" required data-field="identificacion" />
+            <div class="validation-message"></div>
         </div>
 
         <!-- Campo de Rol oculto, se asume que el registro es solo para estudiantes (id_rol=3) -->
@@ -57,19 +82,110 @@
 
         <div class="form-actions" style="justify-content: space-between;">
             <a href="{{ url_for('main.login') }}" class="link-secondary">¿Ya tienes cuenta? Inicia sesión</a>
-            <button type="submit" class="btn btn-primary"><i class="fas fa-user-plus"></i> Registrarse</button>
+            <button type="submit" id="submit-btn" class="btn btn-primary"><i class="fas fa-user-plus"></i> Registrarse</button>
         </div>
     </form>
 </div>
 {% endblock %}
 
 {% block scripts %}
-<!-- Cargar FontAwesome -->
-<script src="https://kit.fontawesome.com/a2d04d6c0b.js" crossorigin="anonymous"></script>
-
 <script>
-    document.querySelector('form').addEventListener('submit', function(event) {
-        if (!validatePassword()) event.preventDefault();
+    document.addEventListener('DOMContentLoaded', function() {
+        const form = document.querySelector('form');
+        const submitButton = document.getElementById('submit-btn');
+        const fieldsToValidate = ['username', 'correo', 'identificacion'];
+        let validationState = {
+            username: null,
+            correo: null,
+            identificacion: null
+        };
+
+        // --- Validación de disponibilidad en tiempo real ---
+        fieldsToValidate.forEach(fieldId => {
+            const input = document.getElementById(fieldId);
+            let debounceTimer;
+
+            input.addEventListener('input', () => {
+                clearTimeout(debounceTimer);
+                debounceTimer = setTimeout(() => {
+                    validateField(input);
+                }, 500); // Espera 500ms después de que el usuario deja de escribir
+            });
+        });
+
+        async function validateField(input) {
+            const field = input.dataset.field;
+            const value = input.value.trim();
+            const messageContainer = input.nextElementSibling;
+
+            // Resetear estado si el campo está vacío
+            if (value === '') {
+                resetInputStyle(input, messageContainer);
+                validationState[field] = null;
+                checkFormValidity();
+                return;
+            }
+
+            try {
+                const response = await fetch(`{{ url_for('main.check_availability') }}?field=${field}&value=${encodeURIComponent(value)}`);
+                const data = await response.json();
+
+                if (data.available) {
+                    input.classList.remove('is-invalid');
+                    input.classList.add('is-valid');
+                    messageContainer.textContent = '¡Disponible!';
+                    messageContainer.className = 'validation-message text-success';
+                    validationState[field] = true;
+                } else {
+                    input.classList.remove('is-valid');
+                    input.classList.add('is-invalid');
+                    messageContainer.textContent = `El ${field} '${value}' ya está en uso.`;
+                    messageContainer.className = 'validation-message text-danger';
+                    validationState[field] = false;
+                }
+            } catch (error) {
+                console.error('Error de validación:', error);
+                resetInputStyle(input, messageContainer);
+                validationState[field] = null; // No se pudo validar, se asume neutral
+            }
+            checkFormValidity();
+        }
+
+        function resetInputStyle(input, messageContainer) {
+            input.classList.remove('is-valid', 'is-invalid');
+            messageContainer.textContent = '';
+            messageContainer.className = 'validation-message';
+        }
+
+        function checkFormValidity() {
+            // El formulario es inválido si algún campo está explícitamente marcado como no disponible (false)
+            const isInvalid = Object.values(validationState).some(state => state === false);
+            submitButton.disabled = isInvalid;
+        }
+
+        // --- Validación de tildes y contraseñas ---
+        const usernameInput = document.getElementById('username');
+        if (usernameInput) {
+            usernameInput.addEventListener('input', function(e) {
+                const accents = /[áéíóúÁÉÍÓÚ]/g;
+                if (accents.test(this.value)) {
+                    this.value = this.value.replace(accents, '');
+                    // Opcional: mostrar una alerta o mensaje
+                    const messageContainer = this.nextElementSibling;
+                    messageContainer.textContent = 'El nombre de usuario no puede contener tildes.';
+                    messageContainer.className = 'validation-message text-danger';
+                    setTimeout(() => {
+                        if (messageContainer.textContent === 'El nombre de usuario no puede contener tildes.') {
+                           validateField(this); // Re-validar para quitar el mensaje si es necesario
+                        }
+                    }, 2000);
+                }
+            });
+        }
+
+        form.addEventListener('submit', function(event) {
+            if (!validatePassword()) event.preventDefault();
+        });
     });
 
     // Función para mostrar/ocultar contraseña

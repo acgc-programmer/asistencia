@@ -1,0 +1,47 @@
+{% extends "navbar.html" %}
+{% block title %}Configuración Inicial{% endblock %}
+
+{% block head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/formulario.css') }}">
+<script src="https://kit.fontawesome.com/a2d04d6c0b.js" crossorigin="anonymous"></script>
+{% endblock %}
+
+{% block content %}
+<div class="form-container">
+    <form method="POST" action="{{ url_for('main.setup') }}">
+        <h2>Registrar Primer Administrador</h2>
+        <p class="text-muted">Este será el primer usuario del sistema y tendrá todos los permisos.</p>
+
+        <div class="input-group">
+            <label for="username">Nombre de Usuario</label>
+            <input type="text" id="username" name="username" required>
+        </div>
+
+        <div class="input-group">
+            <label for="nombre_completo">Nombre Completo</label>
+            <input type="text" id="nombre_completo" name="nombre_completo" required>
+        </div>
+
+        <div class="input-group">
+            <label for="correo">Correo Electrónico</label>
+            <input type="email" id="correo" name="correo" required>
+        </div>
+
+        <div class="input-group">
+            <label for="identificacion">Documento de Identificación</label>
+            <input type="text" id="identificacion" name="identificacion" required>
+        </div>
+
+        <div class="input-group">
+            <label for="password">Contraseña</label>
+            <input type="password" id="password" name="password" required>
+        </div>
+
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary">
+                <i class="fas fa-user-shield"></i> Registrar Administrador
+            </button>
+        </div>
+    </form>
+</div>
+{% endblock %}

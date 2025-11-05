@@ -1,86 +1,717 @@
-{% extends 'navbar.html' %}
-
-{% block title %}Reporte de Asistencia{% endblock %}
+{% extends "navbar.html" %}
+{% block title %}Reportes de Asistencia{% endblock %}
 
 {% block head %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/reporte.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/navbar.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/tablas.css') }}">
+<script src="https://kit.fontawesome.com/a2d04d6c0b.js" crossorigin="anonymous"></script>
+<style>
+    :root {
+        --primary-color: #003cff;
+        --success-color: #28a745;
+        --danger-color: #dc3545;
+        --warning-color: #fd7e14;
+        --info-color: #007bff;
+        --text-light: #ffffff;
+        --text-dark: #333333;
+    }
+
+    body {
+        background: linear-gradient(135deg, #F8FBFF 0%, #E8F4FD 100%);
+        min-height: 100vh;
+    }
+
+    .container {
+        max-width: 1200px;
+        margin: 2rem auto;
+        padding: 1rem;
+    }
+
+    .report-card {
+        background-color: #fff;
+        border-radius: 12px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+        padding: 2rem;
+        margin-bottom: 2rem;
+    }
+
+    h2, h3 {
+        text-align: center;
+        color: var(--primary-color);
+        margin-bottom: 1.5rem;
+    }
+
+    h2 {
+        font-size: 2rem;
+        font-weight: 700;
+    }
+
+    h3 {
+        font-size: 1.3rem;
+        font-weight: 600;
+    }
+
+    /* === FILTROS === */
+    .report-filters {
+        background-color: #f9fafb;
+        padding: 1.5rem;
+        border-radius: 10px;
+        margin-bottom: 2rem;
+        border: 1px solid #e5e7eb;
+    }
+
+    .filtros-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1rem;
+        align-items: end;
+    }
+
+    .filter-group {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+
+    .filter-group label {
+        font-weight: 600;
+        color: #4b5563;
+        font-size: 0.85rem;
+        text-transform: uppercase;
+        letter-spacing: 0.3px;
+    }
+
+    .filter-group input[type="date"],
+    .filter-group select {
+        padding: 0.6rem 0.8rem;
+        border: 1px solid #ccc;
+        border-radius: 6px;
+        font-size: 0.95rem;
+        width: 100%;
+        background-color: white;
+        transition: border-color 0.2s ease;
+    }
+
+    .filter-group input[type="date"]:focus,
+    .filter-group select:focus {
+        outline: none;
+        border-color: var(--primary-color);
+        box-shadow: 0 0 0 3px rgba(0, 60, 255, 0.1);
+    }
+
+    .filtro-acciones {
+        display: flex;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+    }
+
+    .btn-filtrar,
+    .btn-limpiar {
+        padding: 0.6rem 1.2rem;
+        font-weight: 600;
+        border-radius: 6px;
+        border: none;
+        cursor: pointer;
+        text-decoration: none;
+        transition: all 0.2s ease;
+        font-size: 0.9rem;
+        display: inline-block;
+        text-align: center;
+    }
+
+    .btn-filtrar {
+        background-color: var(--primary-color);
+        color: var(--text-light);
+    }
+
+    .btn-filtrar:hover {
+        background-color: #0033cc;
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(0, 60, 255, 0.3);
+    }
+
+    .btn-limpiar {
+        background-color: #6c757d;
+        color: var(--text-light);
+    }
+
+    .btn-limpiar:hover {
+        background-color: #5a6268;
+        transform: translateY(-1px);
+    }
+
+    /* === BADGES DE ESTADO === */
+    .status-badge {
+        display: inline-block;
+        padding: 0.3em 0.8em;
+        font-size: 0.8rem;
+        font-weight: 600;
+        line-height: 1;
+        text-align: center;
+        white-space: nowrap;
+        border-radius: 50rem;
+        color: #fff;
+    }
+
+    .status-presente {
+        background-color: var(--success-color);
+    }
+
+    .status-ausente {
+        background-color: var(--danger-color);
+    }
+
+    .status-tarde {
+        background-color: var(--warning-color);
+    }
+
+    .status-justificado {
+        background-color: var(--info-color);
+    }
+
+    /* === TABLAS === */
+    .table-container {
+        overflow-x: auto;
+        border-radius: 10px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+    }
+
+    .report-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.95rem;
+        background: white;
+    }
+
+    .report-table th,
+    .report-table td {
+        padding: 1rem;
+        border-bottom: 1px solid #e9ecef;
+        vertical-align: middle;
+    }
+
+    .report-table th {
+        background: linear-gradient(135deg, var(--primary-color) 0%, #5BA4E8 100%);
+        color: var(--text-light);
+        text-align: left;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        font-size: 0.8em;
+        position: sticky;
+        top: 0;
+        z-index: 10;
+    }
+
+    .report-table tbody tr {
+        transition: background-color 0.2s ease;
+    }
+
+    .report-table tbody tr:hover {
+        background-color: #f8f9fa;
+    }
+
+    .text-center {
+        text-align: center !important;
+    }
+
+    .estudiante-info .nombre {
+        font-weight: 600;
+        color: #333;
+    }
+
+    .dato-numero {
+        text-align: center;
+        font-weight: 700;
+        font-size: 1.1rem;
+    }
+
+    .presente {
+        color: var(--success-color);
+    }
+
+    .ausente {
+        color: var(--danger-color);
+    }
+
+    .tarde {
+        color: var(--warning-color);
+    }
+
+    .justificado {
+        color: var(--info-color);
+    }
+
+    .no-data {
+        text-align: center;
+        color: #888;
+        font-style: italic;
+        padding: 3rem;
+        background: #f8f9fa;
+        border-radius: 8px;
+    }
+
+    .report-table td i {
+        margin-right: 8px;
+        color: #888;
+    }
+
+    /* === VISTA MÓVIL (CARDS) === */
+    .mobile-cards {
+        display: none;
+    }
+
+    .student-card {
+        background: white;
+        border: 1px solid #e9ecef;
+        border-radius: 10px;
+        padding: 1.2rem;
+        margin-bottom: 1rem;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+    }
+
+    .student-card-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: start;
+        margin-bottom: 1rem;
+        padding-bottom: 1rem;
+        border-bottom: 2px solid #e9ecef;
+    }
+
+    .student-name {
+        font-size: 1.1rem;
+        font-weight: 700;
+        color: #333;
+    }
+
+    .student-grade {
+        font-size: 0.9rem;
+        color: #6c757d;
+        font-weight: 500;
+    }
+
+    .student-stats {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 0.8rem;
+    }
+
+    .stat-box {
+        background: #f8f9fa;
+        padding: 0.8rem;
+        border-radius: 8px;
+        text-align: center;
+        border-left: 4px solid;
+    }
+
+    .stat-box.presente-box {
+        border-color: var(--success-color);
+    }
+
+    .stat-box.ausente-box {
+        border-color: var(--danger-color);
+    }
+
+    .stat-box.tarde-box {
+        border-color: var(--warning-color);
+    }
+
+    .stat-box.justificado-box {
+        border-color: var(--info-color);
+    }
+
+    .stat-label {
+        font-size: 0.75rem;
+        font-weight: 600;
+        color: #6c757d;
+        text-transform: uppercase;
+        letter-spacing: 0.3px;
+        margin-bottom: 0.3rem;
+    }
+
+    .stat-value {
+        font-size: 1.3rem;
+        font-weight: 700;
+    }
+
+    .stat-box.presente-box .stat-value {
+        color: var(--success-color);
+    }
+
+    .stat-box.ausente-box .stat-value {
+        color: var(--danger-color);
+    }
+
+    .stat-box.tarde-box .stat-value {
+        color: var(--warning-color);
+    }
+
+    .stat-box.justificado-box .stat-value {
+        color: var(--info-color);
+    }
+
+    .total-classes {
+        margin-top: 0.8rem;
+        text-align: center;
+        padding: 0.6rem;
+        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+        border-radius: 6px;
+        font-weight: 600;
+        color: #495057;
+    }
+
+    /* ASISTENCIA DETAIL CARDS */
+    .asistencia-item {
+        background: white;
+        border: 1px solid #e9ecef;
+        border-radius: 10px;
+        padding: 1.2rem;
+        margin-bottom: 1rem;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+    }
+
+    .asistencia-item-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: start;
+        margin-bottom: 1rem;
+        padding-bottom: 0.8rem;
+        border-bottom: 1px solid #e9ecef;
+    }
+
+    .asistencia-fecha {
+        font-size: 1rem;
+        font-weight: 700;
+        color: #333;
+    }
+
+    .asistencia-item-body {
+        display: flex;
+        flex-direction: column;
+        gap: 0.7rem;
+    }
+
+    .asistencia-field {
+        display: flex;
+        align-items: start;
+    }
+
+    .asistencia-label {
+        font-size: 0.8rem;
+        font-weight: 600;
+        color: #6c757d;
+        min-width: 90px;
+        text-transform: uppercase;
+        letter-spacing: 0.3px;
+    }
+
+    .asistencia-value {
+        font-size: 0.9rem;
+        color: #333;
+        flex: 1;
+    }
+
+    /* === RESPONSIVE === */
+    @media (max-width: 768px) {
+        .container {
+            padding: 0.5rem;
+        }
+
+        .report-card {
+            padding: 1.2rem;
+        }
+
+        h2 {
+            font-size: 1.5rem;
+        }
+
+        h3 {
+            font-size: 1.1rem;
+        }
+
+        .report-filters {
+            padding: 1rem;
+        }
+
+        .filtros-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .filtro-acciones {
+            flex-direction: column;
+        }
+
+        .btn-filtrar,
+        .btn-limpiar {
+            width: 100%;
+        }
+
+        /* Ocultar tabla, mostrar cards */
+        .table-container.desktop-only {
+            display: none;
+        }
+
+        .mobile-cards {
+            display: block;
+        }
+    }
+
+    @media (max-width: 480px) {
+        .report-card {
+            padding: 1rem;
+        }
+
+        h2 {
+            font-size: 1.3rem;
+        }
+
+        h3 {
+            font-size: 1rem;
+        }
+
+        .student-name {
+            font-size: 1rem;
+        }
+
+        .stat-value {
+            font-size: 1.1rem;
+        }
+    }
+</style>
 {% endblock %}
 
 {% block content %}
 <div class="container">
-    <h2>Reporte de Asistencia</h2>
+    <div class="report-card">
+        <h2>Reportes de Asistencia</h2>
 
-    <form method="get" class="report-filters">
-        <div class="filter-group">
-            <label for="inicio">Desde:</label>
-            <input type="date" id="inicio" name="inicio" value="{{ filtros_activos.inicio or '' }}">
-        </div>
-        <div class="filter-group">
-            <label for="fin">Hasta:</label>
-            <input type="date" id="fin" name="fin" value="{{ filtros_activos.fin or '' }}">
-        </div>
-        <div class="filter-group">
-            <label for="id_curso">Curso:</label>
-            <select name="id_curso" id="id_curso">
-                <option value="">Todos los cursos</option>
-                {% for curso in cursos %}
-                    <option value="{{ curso.id_curso }}" {% if curso.id_curso == filtros_activos.id_curso %}selected{% endif %}>{{ curso.grado }}</option>
-                {% endfor %}
-            </select>
-        </div>
-        <div class="filter-group">
-            <label for="id_profesor">Profesor:</label>
-            <select name="id_profesor" id="id_profesor">
-                <option value="">Todos los profesores</option>
-                {% for prof in profesores %}
-                    <option value="{{ prof.id_profesor }}" {% if prof.id_profesor == filtros_activos.id_profesor %}selected{% endif %}>{{ prof.nombre_completo }}</option>
-                {% endfor %}
-            </select>
-        </div>
-        <div class="filter-group">
-            <label for="id_asignatura">Asignatura:</label>
-            <select name="id_asignatura" id="id_asignatura">
-                <option value="">Todas las asignaturas</option>
-                {% for asignatura in asignaturas %}
-                    <option value="{{ asignatura.id_clase }}" {% if asignatura.id_clase == filtros_activos.id_asignatura %}selected{% endif %}>{{ asignatura.tema }}</option>
-                {% endfor %}
-            </select>
-        </div>
-        <button type="submit" class="btn-filtrar">Filtrar</button>
-        <a href="{{ url_for('main.reporte') }}" class="btn-limpiar">Limpiar</a>
-    </form>
+        <!-- Filtros -->
+        <div class="report-filters">
+            <form method="get" class="filtros-grid">
+                <div class="filter-group">
+                    <label for="id_estudiante">Ver Detalle por Estudiante:</label>
+                    <select name="id_estudiante" id="id_estudiante" onchange="this.form.submit()">
+                        <option value="">-- Resumen General --</option>
+                        {% for est in todos_estudiantes %}
+                        <option value="{{ est.id_estudiante }}" {% if est.id_estudiante==filtros_activos.id_estudiante %}selected{% endif %}>
+                            {{ est.nombre }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
 
-    <div class="table-container">
-        <table class="report-table">
-        <thead>
-            <tr>
-                <th>Estudiante</th>
-                <th>Curso</th>
-                <th class="text-center">Presentes</th>
-                <th class="text-center">Ausentes</th>
-                <th class="text-center">Tardes</th>
-                <th class="text-center">Justificados</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for item in reporte %}
-            <tr>
-                <td class="estudiante-info">
-                    <div class="nombre">{{ item.nombre or 'N/A' }}</div>
-                </td>
-                <td>{{ item.grado or 'N/A' }}</td>
-                <td class="dato-numero presente">{{ item.presentes }}</td>
-                <td class="dato-numero ausente">{{ item.ausentes }}</td>
-                <td class="dato-numero tarde">{{ item.tardes or 0 }}</td>
-                <td class="dato-numero justificado">{{ item.justificados }}</td>
-            </tr>
+                <div class="filter-group">
+                    <label for="id_curso">Curso:</label>
+                    <select name="id_curso" id="id_curso">
+                        <option value="">Todos</option>
+                        {% for curso in cursos %}
+                        <option value="{{ curso.id_curso }}" {% if curso.id_curso==filtros_activos.id_curso %}selected{% endif %}>
+                            {{ curso.grado }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="filter-group">
+                    <label for="id_profesor">Profesor:</label>
+                    <select name="id_profesor" id="id_profesor">
+                        <option value="">Todos</option>
+                        {% for prof in profesores %}
+                        <option value="{{ prof.id_profesor }}" {% if prof.id_profesor==filtros_activos.id_profesor %}selected{% endif %}>
+                            {{ prof.nombre_completo }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="filter-group">
+                    <label for="inicio">Desde:</label>
+                    <input type="date" id="inicio" name="inicio" value="{{ filtros_activos.inicio or '' }}">
+                </div>
+
+                <div class="filter-group">
+                    <label for="fin">Hasta:</label>
+                    <input type="date" id="fin" name="fin" value="{{ filtros_activos.fin or '' }}">
+                </div>
+
+                <div class="filtro-acciones">
+                    <button type="submit" class="btn-filtrar">Filtrar</button>
+                    <a href="{{ url_for('main.reporte') }}" class="btn-limpiar">Limpiar</a>
+                </div>
+            </form>
+        </div>
+
+        {% if vista_detalle %}
+        <!-- VISTA DE DETALLE PARA UN ESTUDIANTE -->
+        <h3>Historial de Asistencia para: <strong>{{ estudiante_seleccionado.nombre }}</strong></h3>
+
+        <!-- Desktop Table -->
+        <div class="table-container desktop-only">
+            {% if asistencias_detalle %}
+            <table class="report-table">
+                <thead>
+                    <tr>
+                        <th>Fecha</th>
+                        <th>Asignatura</th>
+                        <th>Profesor</th>
+                        <th>Horario</th>
+                        <th>Estado</th>
+                        <th>Observaciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in asistencias_detalle %}
+                    <tr>
+                        <td><i class="far fa-calendar-alt"></i> {{ item.fecha.strftime('%d/%m/%Y') }}</td>
+                        <td>{{ item.asignatura }}</td>
+                        <td>{{ item.profesor }}</td>
+                        <td><i class="far fa-clock"></i> {{ item.hora_inicio.strftime('%H:%M') }} - {{ item.hora_fin.strftime('%H:%M') }}</td>
+                        <td><span class="status-badge status-{{ item.estado|lower }}">{{ item.estado }}</span></td>
+                        <td>{{ item.observaciones or 'N/A' }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
             {% else %}
-            <tr>
-                <td colspan="6" class="no-data">No hay datos para mostrar con los filtros seleccionados.</td>
-            </tr>
+            <div class="no-data">
+                No se encontraron registros de asistencia para este estudiante con los filtros aplicados.
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Mobile Cards -->
+        <div class="mobile-cards">
+            {% if asistencias_detalle %}
+            {% for item in asistencias_detalle %}
+            <div class="asistencia-item">
+                <div class="asistencia-item-header">
+                    <div class="asistencia-fecha">
+                        <i class="far fa-calendar-alt"></i> {{ item.fecha.strftime('%d/%m/%Y') }}
+                    </div>
+                    <span class="status-badge status-{{ item.estado|lower }}">{{ item.estado }}</span>
+                </div>
+                <div class="asistencia-item-body">
+                    <div class="asistencia-field">
+                        <span class="asistencia-label">Asignatura:</span>
+                        <span class="asistencia-value">{{ item.asignatura }}</span>
+                    </div>
+                    <div class="asistencia-field">
+                        <span class="asistencia-label">Profesor:</span>
+                        <span class="asistencia-value">{{ item.profesor }}</span>
+                    </div>
+                    <div class="asistencia-field">
+                        <span class="asistencia-label">Horario:</span>
+                        <span class="asistencia-value">
+                            <i class="far fa-clock"></i> {{ item.hora_inicio.strftime('%H:%M') }} - {{ item.hora_fin.strftime('%H:%M') }}
+                        </span>
+                    </div>
+                    {% if item.observaciones %}
+                    <div class="asistencia-field">
+                        <span class="asistencia-label">Observ.:</span>
+                        <span class="asistencia-value">{{ item.observaciones }}</span>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
             {% endfor %}
-        </tbody>
-    </table>
+            {% else %}
+            <div class="no-data">
+                No se encontraron registros de asistencia para este estudiante.
+            </div>
+            {% endif %}
+        </div>
+
+        {% else %}
+        <!-- VISTA DE RESUMEN GENERAL -->
+        <h3>Resumen General de Asistencias por Estudiante</h3>
+
+        <!-- Desktop Table -->
+        <div class="table-container desktop-only">
+            {% if reporte_resumen %}
+            <table class="report-table">
+                <thead>
+                    <tr>
+                        <th>Estudiante</th>
+                        <th>Grado</th>
+                        <th class="text-center">Presente</th>
+                        <th class="text-center">Ausente</th>
+                        <th class="text-center">Tarde</th>
+                        <th class="text-center">Justificado</th>
+                        <th class="text-center">Total Clases</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for fila in reporte_resumen %}
+                    <tr>
+                        <td class="estudiante-info">
+                            <span class="nombre">{{ fila.nombre }}</span>
+                        </td>
+                        <td>{{ fila.grado }}</td>
+                        <td class="dato-numero presente">{{ fila.presentes }}</td>
+                        <td class="dato-numero ausente">{{ fila.ausentes }}</td>
+                        <td class="dato-numero tarde">{{ fila.tardes }}</td>
+                        <td class="dato-numero justificado">{{ fila.justificados }}</td>
+                        <td class="dato-numero">{{ fila.clases_registradas }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <div class="no-data">
+                No se encontraron estudiantes con los filtros aplicados.
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Mobile Cards -->
+        <div class="mobile-cards">
+            {% if reporte_resumen %}
+            {% for fila in reporte_resumen %}
+            <div class="student-card">
+                <div class="student-card-header">
+                    <div>
+                        <div class="student-name">{{ fila.nombre }}</div>
+                        <div class="student-grade">{{ fila.grado }}</div>
+                    </div>
+                </div>
+                <div class="student-stats">
+                    <div class="stat-box presente-box">
+                        <div class="stat-label">Presente</div>
+                        <div class="stat-value">{{ fila.presentes }}</div>
+                    </div>
+                    <div class="stat-box ausente-box">
+                        <div class="stat-label">Ausente</div>
+                        <div class="stat-value">{{ fila.ausentes }}</div>
+                    </div>
+                    <div class="stat-box tarde-box">
+                        <div class="stat-label">Tarde</div>
+                        <div class="stat-value">{{ fila.tardes }}</div>
+                    </div>
+                    <div class="stat-box justificado-box">
+                        <div class="stat-label">Justificado</div>
+                        <div class="stat-value">{{ fila.justificados }}</div>
+                    </div>
+                </div>
+                <div class="total-classes">
+                    Total de clases: <strong>{{ fila.clases_registradas }}</strong>
+                </div>
+            </div>
+            {% endfor %}
+            {% else %}
+            <div class="no-data">
+                No se encontraron estudiantes con los filtros aplicados.
+            </div>
+            {% endif %}
+        </div>
+        {% endif %}
+
+        <!-- Paginación -->
+        {% if total_pages > 1 %}
+        <div class="pagination-container" style="margin-top: 2rem;">
+            {% include 'partials/_pagination.html' %}
+        </div>
+        {% endif %}
     </div>
 </div>
 {% endblock %}

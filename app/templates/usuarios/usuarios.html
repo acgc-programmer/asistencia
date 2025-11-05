@@ -14,11 +14,6 @@
         color: #dc3545;
         font-weight: bold;
     }
-
-    .acciones form {
-        display: inline-block;
-        margin-left: 5px;
-    }
 </style>
 {% endblock %}
 
@@ -59,11 +54,20 @@
                         {% endif %}
                     </td>
                     <td class="acciones">
-                        <a href="{{ url_for('main.editar_usuario', id=usuario.id_usuario) }}" class="editar">Editar</a>
-                        |
-                        <form action="{{ url_for('main.eliminar_usuario', id=usuario.id_usuario) }}" method="POST"
-                            onsubmit="event.preventDefault(); showConfirmModal('¿Estás SEGURO de que quieres eliminar este usuario? Esta acción es PERMANENTE y no se puede deshacer.', () => this.submit());">
-                            <button type="submit" class="eliminar-link">Eliminar</button>
+                        <a href="{{ url_for('main.editar_usuario', id=usuario.id_usuario) }}" class="editar"><i class="fas fa-edit"></i> Editar</a>
+                        <form action="{{ url_for('main.cambiar_estado_usuario', id=usuario.id_usuario) }}" method="POST" style="display: inline;">
+                            {% if usuario.estado %}
+                                <button type="submit" class="banear-link"
+                                    onclick="return confirm('¿Estás seguro de que quieres BANEAR (desactivar) a este usuario? No podrá iniciar sesión.');">
+                                    <i class="fas fa-ban"></i> Banear
+                                </button>
+                            {% else %}
+                                <button type="submit" class="reactivar-link">
+                                    <i class="fas fa-check-circle"></i> Reactivar</button>
+                            {% endif %}
+                        </form>
+                        <form action="{{ url_for('main.eliminar_usuario', id=usuario.id_usuario) }}" method="POST" onsubmit="event.preventDefault(); showConfirmModal('¿Estás SEGURO de que quieres eliminar este usuario? Esta acción es PERMANENTE y no se puede deshacer.', () => this.submit());">
+                            <button type="submit" class="eliminar-link"><i class="fas fa-trash-alt"></i> Eliminar</button>
                         </form>
                     </td>
                 </tr>

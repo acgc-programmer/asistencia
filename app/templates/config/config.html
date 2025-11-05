@@ -1,0 +1,76 @@
+{% extends "navbar.html" %}
+
+{% block title %}Configuración del Sitio{% endblock %}
+
+{% block head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/config.css') }}" />
+
+<link rel="stylesheet" href="{{ url_for('static', filename='css/formulario.css') }}" />
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <!-- Sección de Ajustes Generales -->
+    <div class="config-section">
+        <div class="config-card">
+            <div class="config-header">
+                <h2>Ajustes Generales</h2>
+                <p>Cambia el nombre del sitio y otros parámetros principales.</p>
+            </div>
+            <form method="POST" action="{{ url_for('main.configuracion_actualizar') }}">
+                {% for setting in general_settings %}
+                <div class="form-group">
+                    <label for="valor_{{ setting.id }}">{{ setting.descripcion|default(setting.clave|replace('_', ' ')|title) }}</label>
+                    <i class="fas fa-{{ 'tag' if 'nombre' in setting.clave else 'at' if 'email' in setting.clave else 'quote-left' }} input-icon"></i>
+                    <input type="{{ setting.tipo }}" id="valor_{{ setting.id }}" name="valor_{{ setting.id }}" value="{{ setting.valor or '' }}" class="form-control form-control-icon">
+                    <small class="form-text">{{ setting.descripcion }}</small>
+                </div>
+                {% endfor %}
+                <button type="submit" class="btn btn-primary" style="width: 100%; padding: 0.8rem; font-size: 1.1rem;">
+                    <i class="fas fa-save"></i>
+                    Guardar Ajustes Generales
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Sección de Redes Sociales -->
+    <div class="config-section">
+        <div class="config-card">
+            <div class="config-header">
+                <h2>Redes Sociales y Enlaces</h2>
+                <p>Gestiona los enlaces que aparecen en el pie de página.</p>
+            </div>
+            {% for social in social_settings %}
+            <div class="social-item">
+                <form method="POST" action="{{ url_for('main.configuracion_actualizar') }}" style="flex-grow: 1; display: contents;">
+                    <div class="form-group">
+                        <label for="valor_{{ social.id }}"><i class="{{ social.icono }}"></i> {{ social.clave|replace('url_', '')|replace('_', ' ')|title }}</label>
+                        <input type="url" id="valor_{{ social.id }}" name="valor_{{ social.id }}" value="{{ social.valor or '' }}" class="form-control">
+                    </div>
+                    <button type="submit" class="btn btn-primary" title="Guardar cambio"><i class="fas fa-save"></i>guardar</button>
+                </form>
+                <form action="{{ url_for('main.configuracion_eliminar', id=social.id) }}" method="POST" style="display: inline;">
+                    <button type="submit" class="btn btn-danger" onclick="return confirm('¿Estás seguro de que quieres eliminar este enlace?');" title="Eliminar enlace"><i class="fas fa-trash-alt"></i>eliminar</button>
+                </form>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Sección para Añadir Nueva Red Social -->
+    <div class="config-section">
+        <div class="config-card add-social-card">
+            <h3 style="text-align: center; margin-top: 0; margin-bottom: 2rem; font-weight: 600;">Añadir Nuevo Enlace</h3>
+            <form method="POST" action="{{ url_for('main.configuracion_social_agregar') }}" class="add-social-form">
+                <div class="form-group"><label for="nombre_red">Nombre (ej: TikTok)</label><input type="text" id="nombre_red" name="nombre_red" class="form-control" required></div>
+                <div class="form-group"><label for="url_red">URL Completa</label><input type="url" id="url_red" name="url_red" class="form-control" placeholder="https://..." required></div>
+                <div class="form-group"><label for="icono_red">Ícono Font Awesome (ej: fab fa-tiktok)</label><input type="text" id="icono_red" name="icono_red" class="form-control" placeholder="fab fa-..." ></div>
+                <button type="submit" class="btn btn-success">
+                    <i class="fas fa-plus-circle"></i> Añadir Enlace
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
