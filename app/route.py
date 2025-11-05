@@ -6,13 +6,11 @@ from functools import wraps
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime, timedelta
 from itsdangerous import URLSafeTimedSerializer
-from flask_mail import Message
 import psycopg2.extras
 import random
 import hashlib
-
+import resend
 from app.db import get_db_connection
-from app import mail
 
 main = Blueprint('main', __name__)
 
@@ -78,13 +76,13 @@ def send_email(to_email, reset_url):
             reset_url=reset_url,
             year=datetime.now().year
         )
-        msg = Message(
-            "Restablecer Contraseña - AsisPro",
-            sender="ACGC Estudio <acgc.estudio@gmail.com>",
-            recipients=[to_email]
-        )
-        msg.html = html_body
-        mail.send(msg)
+        params = {
+            "from": "AsisPro <onboarding@resend.dev>",
+            "to": [to_email],
+            "subject": "Restablecer Contraseña - AsisPro",
+            "html": html_body,
+        }
+        resend.Emails.send(params)
         current_app.logger.info(f"Correo de recuperación enviado a {to_email}")
         return True
     except Exception as e:
@@ -99,11 +97,13 @@ def send_verification_email(to_email, codigo):
             codigo=codigo, 
             year=datetime.now().year
         )
-        msg = Message("Tu código de verificación - IED Simón Bolívar",
-                      sender="ACGC Estudio <acgc.estudio@gmail.com>",
-                      recipients=[to_email])
-        msg.html = html_body
-        mail.send(msg)
+        params = {
+            "from": "IED Simón Bolívar <onboarding@resend.dev>",
+            "to": [to_email],
+            "subject": "Tu código de verificación - IED Simón Bolívar",
+            "html": html_body,
+        }
+        resend.Emails.send(params)
         return True
     except Exception as e:
         current_app.logger.error(f"Error al enviar correo de verificación a {to_email}: {e}")
