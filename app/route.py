@@ -91,14 +91,28 @@ def send_email(to_email, reset_url):
 
 def send_verification_email(to_email, codigo):
     """Envía un correo de verificación de cuenta con un código."""
+    # Obtener el nombre del sitio desde la configuración en la BD
+    db = get_db()
+    cursor = db.cursor()
+    try:
+        cursor.execute("SELECT valor FROM configuracion WHERE clave = 'nombre_sitio'")
+        site_name_row = cursor.fetchone()
+        # Usar el nombre del sitio si existe, de lo contrario, un valor por defecto.
+        site_name = site_name_row[0] if site_name_row else "Plataforma de Asistencias"
+    except Exception:
+        site_name = "Plataforma de Asistencias" # Fallback en caso de error
+    finally:
+        cursor.close()
+
     try:
         html_body = render_template(
             'email/verificacion.html', 
             codigo=codigo, 
             year=datetime.now().year
         )
+        from_address = f"{site_name} <onboarding@resend.dev>"
         params = {
-            "from": "IED Simón Bolívar <onboarding@resend.dev>",
+            "from": from_address,
             "to": [to_email],
             "subject": "Tu código de verificación - IED Simón Bolívar",
             "html": html_body,
